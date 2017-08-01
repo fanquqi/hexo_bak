@@ -1,0 +1,1117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>fix u dream</title>
+  
+  <link href="/atom.xml" rel="self"/>
+  
+  <link href="http://yoursite.com/"/>
+  <updated>2017-08-01T04:12:24.000Z</updated>
+  <id>http://yoursite.com/</id>
+  
+  <author>
+    <name>樊全清</name>
+    
+  </author>
+  
+  <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>nginx之请求限流限速问题</title>
+    <link href="http://yoursite.com/2017/07/20/nginx%E4%B9%8B%E8%AF%B7%E6%B1%82%E9%99%90%E6%B5%81%E9%99%90%E9%80%9F%E9%97%AE%E9%A2%98/"/>
+    <id>http://yoursite.com/2017/07/20/nginx之请求限流限速问题/</id>
+    <published>2017-07-20T07:04:07.000Z</published>
+    <updated>2017-08-01T04:12:24.000Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="单位时间按照ip地址限速"><a href="#单位时间按照IP地址限速" class="headerlink" title="单位时间按照IP地址限速"></a>单位时间按照IP地址限速</h1><p>工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面就会用到map来设置。看下边例子展示</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line">http &#123;  </div><div class="line">    geo $white_ip &#123;</div><div class="line">        ranges;</div><div class="line">        default 0;</div><div class="line">        127.0.0.1-127.0.0.1 1;</div><div class="line"></div><div class="line">        36.110.16.242-36.110.16.242 1</div><div class="line">         </div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    map $white_ip $white_ip_address &#123;</div><div class="line">        0 $binary_remote_addr;</div><div class="line">        1 &quot;&quot;;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    limit_req_zone $white_ip_address zone=:10m rate=20r/s;</div><div class="line">    </div><div class="line">    ....</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>解释下：</p>
+<p>上述通过<code>geo模块</code> 设定了白名单 </p>
+<p><strong>ngx_http_geo_module</strong> 模块可以用来创建变量，其值依赖于客户端IP地址。<br>语法: geo [$address] $variable { … }    设置在http 模块中<br><code>[$address]</code> 可以为空，使用默认变量也就是$remote_addr 其实例子中 <code>geo $white_ip {}</code>  就相当于<code>geo $remote_addr $white_ip {}</code><br><code>$white_ip</code> 命名为<code>white_ip</code><br><code>ranges</code> 使用以地址段的形式定义地址，这个参数必须放在首位。为了加速装载地址库，地址应按升序定义。<br><code>default</code> 设置默认值，如果客户端地址不能匹配任意一个定义的地址，nginx将使用此值。</p>
+<p>注：如果36.110.16.242 这个IP地址访问本站, <code>white_ip</code> 这个变量值就是 1,否则就是0 </p>
+<p>通过<code>map模块</code> 对$white_ip进行映射</p>
+<p><strong>ngx_http_map_module</strong> 模块可以创建变量，这些变量的值与另外的变量值相关联（上文的$white_ip）。允许分类或者同时映射多个值到多个不同值并储存到一个变量中，map指令用来创建变量，但是仅在变量被接受的时候执行视图映射操作，对于处理没有引用变量的请求时，这个模块并没有性能上的缺失。 </p>
+<p>语法: map $var1 $var2 { … }</p>
+<p>上文map指令是将$white_ip值为0的，也就是受限制的IP，映射为客户端IP。将$white_ip值为1的，映射为空的字符串。<br><code>limit_conn_zone</code>和<code>limit_req_zone</code>指令对于键为空值的将会被忽略，从而实现对于列出来的IP不做限制。</p>
+<p><code>limit_req_zone</code> 真正操作限速<br><strong>ngx_http_limit_req_module</strong> 模块</p>
+<h1 id="下载限速"><a href="#下载限速" class="headerlink" title="下载限速"></a>下载限速</h1><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">location /file &#123; </div><div class="line">    limit_rate 128k;</div><div class="line"># 限制下载速度128K/s </div><div class="line">  &#125; </div><div class="line"></div><div class="line"># 如果想设置用户下载文件的前10m大小时不限速，大于10m后再以128kb/s限速可以增加以下配内容，修改nginx.conf文件</div><div class="line"></div><div class="line">location /download &#123; </div><div class="line">       limit_rate_after 10m; </div><div class="line">       limit_rate 128k; </div><div class="line"> &#125;</div></pre></td></tr></table></figure>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;单位时间按照ip地址限速&quot;&gt;&lt;a href=&quot;#单位时间按照IP地址限速&quot; class=&quot;headerlink&quot; title=&quot;单位时间按照IP地址限速&quot;&gt;&lt;/a&gt;单位时间按照IP地址限速&lt;/h1&gt;&lt;p&gt;工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面
+    
+    </summary>
+    
+    
+      <category term="nginx" scheme="http://yoursite.com/tags/nginx/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>socket解读</title>
+    <link href="http://yoursite.com/2017/07/18/socket%E8%A7%A3%E8%AF%BB/"/>
+    <id>http://yoursite.com/2017/07/18/socket解读/</id>
+    <published>2017-07-18T02:24:52.000Z</published>
+    <updated>2017-07-31T05:45:26.000Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
+<p>之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。</p>
+</blockquote>
+<h1 id="tcpip"><a href="#TCP-IP" class="headerlink" title="TCP/IP"></a>TCP/IP</h1><p>要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作在第几层？<br>TCP/IP（Transmission Control Protocol/Internet Protocol）即传输控制协议/网间协议，定义了主机如何连入因特网及数据如何再它们之间传输的标准，</p>
+<p>从字面意思来看TCP/IP是TCP和IP协议的合称，但实际上TCP/IP协议是指因特网整个TCP/IP协议簇。不同于ISO模型的七个分层，TCP/IP协议参考模型把所有的TCP/IP系列协议归类到四个抽象层中</p>
+<p>应用层：TFTP，HTTP，SNMP，FTP，SMTP，DNS，Telnet 等等</p>
+<p>传输层：TCP，UDP</p>
+<p>网络层：IP，ICMP，OSPF，EIGRP，IGMP</p>
+<p>数据链路层：SLIP，CSLIP，PPP，MTU</p>
+<p>每一层都是建立在下一层提供的服务上，为上一层提供服务</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;前言&quot;&gt;&lt;a href=&quot;#前言&quot; class=&quot;headerlink&quot; title=&quot;前言&quot;&gt;&lt;/a&gt;前言&lt;/h1&gt;&lt;blockquote&gt;
+&lt;p&gt;之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="socket" scheme="http://yoursite.com/tags/socket/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>MySQL使用记录</title>
+    <link href="http://yoursite.com/2017/07/13/MySQL%E4%BD%BF%E7%94%A8%E8%AE%B0%E5%BD%95/"/>
+    <id>http://yoursite.com/2017/07/13/MySQL使用记录/</id>
+    <published>2017-07-13T08:02:23.000Z</published>
+    <updated>2017-07-28T08:32:32.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>数据库现在为止我只接触过MySQL，MySQL自从被oracle收购后，就衍生出三大阵营，Drizzle、MariaDB和Percona Server（包括XtraDB引擎），第一个没接触过不太了解，MariaDB与percona又有很多相似点，比如都支持XtraDB（innodb加强版）<br>看看两者优缺点：</p>
+<ul>
+<li>Percona团队的最终声明是“Percona Server是由Oracle发布的最接近官方MySQL Enterprise发行版的版本”，因此与其他更改了大量基本核心MySQL代码的分支有所区别。</li>
+<li>XtraDB 存储引擎是完全的向下兼容，在 MariaDB 中，XtraDB 存储引擎被标识为”ENGINE=InnoDB”，这个与 InnoDB 是一样的，所以你可以直接用XtraDB 替换掉 InnoDB 而不会产生任何问题。</li>
+<li>MariaDB的目的是完全兼容MySQL，包括API和命令行，使之能轻松成为MySQL的代替品。在存储引擎方面，10.0.9版起使用XtraDB（名称代号为Aria）来代替MySQL的InnoDB。</li>
+<li>Percona Server的一个缺点是他们自己管理代码，不接受外部开发人员的贡献，以这种方式确保他们对产品中所包含功能的控制。</li>
+</ul>
+<p>总之，二者目前为止没有拉开什么差距，所以可以自由选择。<br>阿里使用的percona 但是Google使用的MariaDB。。。</p>
+<p>我也是用的percona。下边以它为例说明。</p>
+<p>数据库也是个比较大的技术栈，三言两语说不完，工具书都特别厚，我写这篇文章的目的无非就是想给自己一个查看SQL语句的地方，见识比较少，有错误我肯定不是故意的，全文参考这个<a href="http://lib.csdn.net/maquealone/352262/chart/MySQL" target="_blank" rel="external">技能图谱</a></p>
+<h1 id="安装部署"><a href="#安装部署" class="headerlink" title="安装部署"></a>安装部署</h1><p>直接yum就可以，国内有清华源，中科院源，比较快，官网下载简直是灾难。<br>可以写ansible-playbook，没有难点不多说。</p>
+<h2 id="配置文件详解"><a href="#配置文件详解" class="headerlink" title="配置文件详解"></a>配置文件详解</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div><div class="line">153</div><div class="line">154</div><div class="line">155</div><div class="line">156</div><div class="line">157</div><div class="line">158</div><div class="line">159</div><div class="line">160</div><div class="line">161</div><div class="line">162</div><div class="line">163</div><div class="line">164</div><div class="line">165</div><div class="line">166</div><div class="line">167</div><div class="line">168</div><div class="line">169</div><div class="line">170</div><div class="line">171</div><div class="line">172</div><div class="line">173</div><div class="line">174</div></pre></td><td class="code"><pre><div class="line">[mysqld3306]</div><div class="line"></div><div class="line"># 为PXC定制</div><div class="line">binlog_format=ROW</div><div class="line">default-storage-engine         = InnoDB</div><div class="line">innodb_autoinc_lock_mode=2</div><div class="line"></div><div class="line"></div><div class="line"># 绑定地址之后只能通过内部网络访问</div><div class="line"></div><div class="line">bind-address=10.******</div><div class="line"></div><div class="line">auto-increment-increment = 2</div><div class="line">auto-increment-offset = 1</div><div class="line"></div><div class="line"># 使用 xtrabackup-v2 必须制定datadir, 因为操作可能直接对 datadir进行</div><div class="line">datadir=/home/mysql/3306/data</div><div class="line"></div><div class="line"># http://www.percona.com/doc/percona-xtrabackup/2.2/innobackupex/privileges.html#permissions-and-privileges-needed</div><div class="line"># 权限的配置</div><div class="line"># xtrapbackup在Donor上执行，因此只需localhost的权限</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line"># 约定:</div><div class="line">server-id = 1</div><div class="line"></div><div class="line"></div><div class="line"># wsrep模式不依赖于GTID</div><div class="line"># 开启GTID</div><div class="line"># enforce_gtid_consistency=1</div><div class="line"># gtid_mode=on</div><div class="line"></div><div class="line"># 即便临时作为Slave，也记录自己的binlog</div><div class="line">log-slave-updates=1</div><div class="line"></div><div class="line"># master_info_repository=TABLE</div><div class="line"># relay_log_info_repository=TABLE</div><div class="line"></div><div class="line"># GENERAL #</div><div class="line">user                           = mysql</div><div class="line">port                           = 3306</div><div class="line">socket                         = /home/mysql/3306/mysql.sock</div><div class="line">pid-file                       = /home/mysql/3306/mysql.pid</div><div class="line"></div><div class="line"># MyISAM #</div><div class="line">key-buffer-size                = 32M</div><div class="line">myisam-recover                 = FORCE,BACKUP</div><div class="line"></div><div class="line"></div><div class="line">ft-min-word-len = 4</div><div class="line">event-scheduler = 0</div><div class="line"></div><div class="line"># SAFETY #</div><div class="line">max-allowed-packet             = 16M</div><div class="line"></div><div class="line">skip-name-resolve</div><div class="line">max_connections = 2000</div><div class="line">max_connect_errors = 30</div><div class="line"></div><div class="line">back-log = 500</div><div class="line"></div><div class="line">character-set-client-handshake = 1</div><div class="line">character-set-server = utf8mb4</div><div class="line">collation-server = utf8mb4_unicode_ci</div><div class="line"></div><div class="line">#character-set-client-handshake=1</div><div class="line">#character-set-client=utf8</div><div class="line">#character-set-server=utf8</div><div class="line">#collation-server=utf8_general_ci</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">#key-buffer-size = 256M</div><div class="line">table-open-cache = 2048</div><div class="line">max-allowed-packet = 2048M</div><div class="line">slave-skip-errors = all                       #Skip duplicated key</div><div class="line">sort-buffer-size = 4M</div><div class="line">join-buffer-size = 8M</div><div class="line">thread-cache-size = 50</div><div class="line">concurrent-insert = 2</div><div class="line"></div><div class="line">thread-stack = 192K</div><div class="line">net-buffer-length = 8K</div><div class="line">read-buffer-size = 256K</div><div class="line">read-rnd-buffer-size = 16M</div><div class="line">bulk-insert-buffer-size = 64M</div><div class="line"></div><div class="line"># 采用thread pool来处理连接</div><div class="line">thread_handling=pool-of-threads</div><div class="line"></div><div class="line"></div><div class="line">sql-mode                       = STRICT_TRANS_TABLES,NO_AUTO_CREATE_USER,NO_AUTO_VALUE_ON_ZERO,NO_ENGINE_SUBSTITUTION,ONLY_FULL_GROUP_BY</div><div class="line">sysdate-is-now                 = 1</div><div class="line">innodb                         = FORCE</div><div class="line">innodb-strict-mode             = 1</div><div class="line"></div><div class="line"></div><div class="line"># BINARY LOGGING #</div><div class="line">log-bin                        = /home/mysql/3306/data/mysql-bin</div><div class="line">expire-logs-days               = 5</div><div class="line"># LOGGING #</div><div class="line"># log-output=file 默认就是FILE</div><div class="line">log-error                      = /home/mysql/3306/data/mysql-error.log</div><div class="line">long-query-time = 0.3</div><div class="line"># log-queries-not-using-indexes  = 1</div><div class="line">slow-query-log                 = 1</div><div class="line">slow-query-log-file            = /home/mysql/3306/data/mysql-slow.log</div><div class="line"></div><div class="line"># 默认为0(MySQL不控制binlog的输出)</div><div class="line"># sync-binlog                    = 1</div><div class="line"></div><div class="line"># CACHES AND LIMITS #</div><div class="line"></div><div class="line">tmp-table-size                 = 32M</div><div class="line">max-heap-table-size            = 32M</div><div class="line"></div><div class="line"># 频繁修改的表不适合做query-cache, 否则反而影响效率</div><div class="line">query-cache-type               = 0</div><div class="line">query-cache-size               = 0</div><div class="line"># query-cache-limit = 2M</div><div class="line"># query-cache-min-res-unit = 512</div><div class="line"></div><div class="line">thread-cache-size              = 100</div><div class="line">open-files-limit               = 65535</div><div class="line">table-definition-cache         = 1024</div><div class="line">table-open-cache               = 4096</div><div class="line"></div><div class="line"># INNODB #</div><div class="line">innodb-flush-method            = O_DIRECT</div><div class="line">innodb-log-files-in-group      = 2</div><div class="line"></div><div class="line"># innodb-file-per-table = 1设置之后， 下面的配置基本失效</div><div class="line">innodb_data_file_path = ibdata1:10M:autoextend</div><div class="line">innodb-thread-concurrency = 32</div><div class="line">innodb-log-file-size           = 256M</div><div class="line">innodb-flush-log-at-trx-commit = 2</div><div class="line">innodb-file-per-table          = 1</div><div class="line"># 内存: 全部内存*0.7</div><div class="line">innodb-buffer-pool-size = 25G</div><div class="line"></div><div class="line">performance-schema = 0</div><div class="line">net-read-timeout = 60</div><div class="line"></div><div class="line"># innodb-open-files 在MySQL5.6 auto-sized</div><div class="line"># 来自May2</div><div class="line">innodb-rollback-on-timeout</div><div class="line">innodb-status-file = 1</div><div class="line"></div><div class="line"></div><div class="line"># http://dev.mysql.com/doc/refman/5.6/en/innodb-performance-multiple_io_threads.html</div><div class="line"># http://zhan.renren.com/formysql?tagId=3942&amp;checked=true</div><div class="line"># 从MySQL 5.5</div><div class="line"># innodb_file_io_threads = 4</div><div class="line">innodb-read-io-threads = 16</div><div class="line">innodb-write-io-threads = 8</div><div class="line"></div><div class="line">innodb-io-capacity = 2000</div><div class="line"># innodb-stats-update-need-lock = 0 # MySQL 5.6中无效</div><div class="line"># innodb-stats-auto-update = 0</div><div class="line">innodb-old-blocks-pct = 75</div><div class="line"># innodb-adaptive-flushing-method = &quot;estimate&quot;</div><div class="line"># innodb-adaptive-flushing = 1</div><div class="line"></div><div class="line"># https://www.facebook.com/notes/mysql-at-facebook/repeatable-read-versus-read-committed-for-innodb/244956410932</div><div class="line"># READ-COMMITTED 每次QUERY都要求调用: read_view_open_now, 而REPEATABLE-READ每次Transaction中只要求一次</div><div class="line"># REPEATABLE-READ 会导致读写不同步</div><div class="line">transaction-isolation = READ-COMMITTED</div><div class="line"></div><div class="line">innodb-sync-spin-loops = 100</div><div class="line">innodb-spin-wait-delay = 30</div><div class="line"></div><div class="line">innodb-file-format = &quot;Barracuda&quot;</div><div class="line">innodb-file-format-max = &quot;Barracuda&quot;</div></pre></td></tr></table></figure>
+<h1 id="基本操作"><a href="#基本操作" class="headerlink" title="基本操作"></a>基本操作</h1><blockquote>
+<p>日常操作无非就是增删改查。也可分为库层面操作，与表层面操作。</p>
+</blockquote>
+<h2 id="库操作"><a href="#库操作" class="headerlink" title="库操作"></a>库操作</h2><p>一般库操作很少，没有什么花样<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line"># 创建数据库</div><div class="line">create database online_database;        </div><div class="line"># 查看数据库</div><div class="line">show databases;  </div><div class="line"># 查看数据库信息    </div><div class="line">show create database online_database;</div><div class="line"># 修改数据库的编码，可使用上一条语句查看是否修改成功</div><div class="line">alter database online_database default character set gbk collate gbk_bin;      </div><div class="line"># 删除数据库</div><div class="line">drop database online_database;</div></pre></td></tr></table></figure></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;数据库现在为止我只接触过MySQL，MySQL自从被oracle收购后，就衍生出三大阵营，Drizzle、MariaDB和Percona Server（包括XtraDB引擎），第一个没接触过不太了解，MariaDB与percona又有很多相似点，比如都支持XtraDB（in
+    
+    </summary>
+    
+      <category term="数据库" scheme="http://yoursite.com/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/"/>
+    
+    
+      <category term="mysql" scheme="http://yoursite.com/tags/mysql/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>uwsgi笔记</title>
+    <link href="http://yoursite.com/2017/07/13/uwsgi%E7%AC%94%E8%AE%B0/"/>
+    <id>http://yoursite.com/2017/07/13/uwsgi笔记/</id>
+    <published>2017-07-13T06:38:09.000Z</published>
+    <updated>2017-07-19T08:09:37.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>前言，来公司一年了，对uwsgi的操作，只停留在部署，或者restart，并没有主动配置过，今天看nginx的时候看到nginx(我们的nginx是只转发)的请求是转发的本地某个端口，是个uwsgi提供的fastrouter服务。在此记录一下。</p>
+</blockquote>
+<p>由于我们后端使用的都是Django项目，所以整体都是这个架构<code>nginx</code>–&gt;<code>uwsgi</code>–&gt;<code>django</code>.所以对uwsgi的了解也很重要。<br>fastrouter使用放到后面先说，uwsgi的普通配置。</p>
+<p>版本：uWSGI==2.0.12</p>
+<h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>WSGI（Python Web Server Gateway Interface，缩写为WSGI） 是一种 Web 服务器网关接口。它是一个 Web 服务器（如 Nginx）与应用服务器（如 uWSGI 服务器）通信的一种规范。<br>uwsgi 是一种协议<br>uWSGI uWSGI是一个Web服务器，它实现了WSGI协议、uwsgi、http等协议。uWSGI，既不用wsgi协议也不用FastCGI协议，而是自创了一个uwsgi的协议，uwsgi协议是一个uWSGI服务器自有的协议，它用于定义传输信息的类型（type of information），每一个uwsgi packet前4byte为传输信息类型描述，它与WSGI相比是两样东西。据说该协议大约是fcgi协议的10倍那么快。</p>
+<p>优点：</p>
+<ul>
+<li>超快的性能。</li>
+<li>低内存占用（实测为apache2的mod_wsgi的一半左右）。</li>
+<li>多app管理。</li>
+<li>详尽的日志功能（可以用来分析app性能和瓶颈）。</li>
+<li>高度可定制（内存大小限制，服务一定次数后重启等）。</li>
+</ul>
+<p>版本：uWSGI==2.0.12</p>
+<h2 id="安装配置"><a href="#安装配置" class="headerlink" title="安装配置"></a>安装配置</h2><p>安装就是直接在virtualenv中pip安装就好了<br>pip install uWSGI</p>
+<h2 id="uwsgitop"><a href="#uwsgitop" class="headerlink" title="uwsgitop"></a>uwsgitop</h2><blockquote>
+<p>监控工具</p>
+</blockquote>
+<h3 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h3><p>pip install uwsgitop </p>
+<h3 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h3><p>uwsgitop /tmp/stats.sock</p>
+<h2 id="plugins使用"><a href="#plugins使用" class="headerlink" title="plugins使用"></a>plugins使用</h2><h3 id="fastrouter"><a href="#fastrouter" class="headerlink" title="fastrouter"></a>fastrouter</h3><p>这是一个负载均衡插件，比如说四个uwsgi节点提供服务，这样在nginx上面可以配置成upstream，分流到四个uwsgi服务上，但是如果是上线，或者有一个节点挂掉了怎么办，只能是收到500报警在手动剔除吗？ to yung to sample!! 当然不是，这个时候就用到fastrouter了。<br>看<a href="http://uwsgi-docs-cn.readthedocs.io/zh_CN/latest/Fastrouter.html?highlight=fast" target="_blank" rel="external">官网</a></p>
+<blockquote>
+<p>For advanced setups uWSGI includes the “fastrouter” plugin, a proxy/load-balancer/router speaking the uwsgi protocol. It is built in by default. You can put it between your webserver and real uWSGI instances to have more control over the routing of HTTP requests to your application servers.</p>
+</blockquote>
+<p>它的功能proxy/load-banlance/router<br>简述一下配置：</p>
+<p><strong>nginx配置</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">location /test &#123;</div><div class="line">        include    uwsgi_params;</div><div class="line">        uwsgi_pass 127.0.0.1:3030;</div><div class="line">    &#125;</div></pre></td></tr></table></figure></p>
+<p><strong>fastrouter-server端配置</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">&lt;uwsgi id = &quot;fastrouter&quot;&gt;</div><div class="line">    &lt;fastrouter&gt;127.0.0.1:3030&lt;/fastrouter&gt;</div><div class="line">    &lt;fastrouter-subscription-server&gt;127.0.0.1:3131&lt;/fastrouter-subscription-server&gt;</div><div class="line">    &lt;enable-threads/&gt;</div><div class="line">    &lt;master/&gt;</div><div class="line">    &lt;fastrouter-stats&gt;127.0.0.1:9595&lt;/fastrouter-stats&gt;</div><div class="line">&lt;/uwsgi&gt;</div></pre></td></tr></table></figure></p>
+<ul>
+<li>3030为当前uWSGI fastrouter server的端口，前面的空代表当前主机地址。（nginx会用到这个端口）</li>
+<li>3131fastrouter-subscription-server 表示当前uWSGI fastrouter server的订阅地址。（web应用服务会用到）</li>
+<li>stats：uWSGI的统计服务机制，访问会返回一个json对象，都是<a href="http://uwsgi-docs.readthedocs.io/en/latest/StatsServer.html" target="_blank" rel="external">状态统计信息</a> 格式可以是一个端口，也可以是一个socket</li>
+</ul>
+<p><strong>uwsgi实例配置</strong></p>
+<p>实例1<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">&lt;uwsgi id = &quot;subserver1&quot;&gt;</div><div class="line">    &lt;stats&gt;127.0.0.1:9393&lt;/stats&gt;</div><div class="line">    &lt;processes&gt;4&lt;/processes&gt;</div><div class="line">    &lt;enable-threads/&gt;</div><div class="line">    &lt;memory-report/&gt;</div><div class="line">    &lt;subscribe-to&gt;127.0.0.1:3131:test&lt;/subscribe-to&gt;</div><div class="line">    &lt;socket&gt;127.0.0.1:3232&lt;/socket&gt;</div><div class="line">    &lt;file&gt;./server.py&lt;/file&gt;</div><div class="line">    &lt;master/&gt;</div><div class="line">    &lt;weight&gt;8&lt;/weight&gt;</div><div class="line">&lt;/uwsgi&gt;</div></pre></td></tr></table></figure></p>
+<p>实例2<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">&lt;uwsgi id = &quot;subserver2&quot;&gt;</div><div class="line">    &lt;stats&gt;127.0.0.1:9494&lt;/stats&gt;</div><div class="line">    &lt;processes&gt;4&lt;/processes&gt;</div><div class="line">    &lt;enable-threads/&gt;</div><div class="line">    &lt;memory-report/&gt;</div><div class="line">    &lt;subscribe-to&gt;127.0.0.1:3131:test&lt;/subscribe-to&gt;</div><div class="line">    &lt;socket&gt;127.0.0.1:3333&lt;/socket&gt;</div><div class="line">    &lt;file&gt;./server.py&lt;/file&gt;</div><div class="line">    &lt;master/&gt;</div><div class="line">    &lt;weight&gt;2&lt;/weight&gt;</div><div class="line">&lt;/uwsgi&gt;</div></pre></td></tr></table></figure></p>
+<ul>
+<li><stats>127.0.0.1:9494</stats> 这个可以把9494改为0 则为自动分配 也可以改成socket</li>
+<li><p>我们通过subscribe-to变量来订阅fastrouter server（127.0.0.1:3131）,冒号后跟着的是对应请求的域名，只有来自当前域名的请求才会进入当前web节点。当然这个可以设置多个subscribe-to，例如：subscribe-to=127.0.0.1:3131:test1</p>
+</li>
+<li><p>weight 权重分配</p>
+</li>
+</ul>
+<p>由于我们线上使用的是fastrouter,所以在这儿就只说了这个，其实uwsgi的负载均衡使用不只有这一种手段<br>有兴趣可以看下<a href="http://www.cnblogs.com/codeape/p/4064815.html" target="_blank" rel="external">这篇博文</a></p>
+<h3 id="harakiri"><a href="#harakiri" class="headerlink" title="harakiri"></a>harakiri</h3>]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;前言，来公司一年了，对uwsgi的操作，只停留在部署，或者restart，并没有主动配置过，今天看nginx的时候看到nginx(我们的nginx是只转发)的请求是转发的本地某个端口，是个uwsgi提供的fastrouter服务。在此记录一下。&lt;/
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="uwsgi" scheme="http://yoursite.com/tags/uwsgi/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>记录主机history</title>
+    <link href="http://yoursite.com/2017/07/12/%E8%AE%B0%E5%BD%95%E4%B8%BB%E6%9C%BAhistory/"/>
+    <id>http://yoursite.com/2017/07/12/记录主机history/</id>
+    <published>2017-07-12T06:10:20.000Z</published>
+    <updated>2017-07-13T06:21:48.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>起因，有个哥们儿要离职，直接上线上把他机器训练的东西拷贝到电脑本地，我们用的vpn，有些服务对此有点依赖，不详细说，总之影响到了一丢丢线上的情况，所以CTO很不高兴，机器历史记录也没有，啥都没有，多亏他承认了。但是我这个运维还是多少显得有点尴尬。</p>
+</blockquote>
+<p>下面说一些改进措施</p>
+<ul>
+<li>不准任何人直接登录线上机器，必须通过跳板机（上传现在文件也必须通过跳板机加以控制）</li>
+<li>openvpn与线上带宽解耦</li>
+<li>openvpn限速，线上加iptables阻止openvpn的地址，只接受跳板机(加一条运维通道，永远有B方案)</li>
+<li>历史记录需要详细记录</li>
+</ul>
+<p>前三条很好就解决了。<br>下面内容详细记录下第四条的实现方法。</p>
+<p>bash是多数Linux发行版默认的shell，虽然不及zsh好用，但比其它的shell好太多。<br>我们的生产服务器很多，没有用跳板机，又是多人共用root用户，为了审计用户操作，需要记录执行命令的用户、时间和ip等信息。本文之所以要优化，主要是因为bash默认配置存在以下几点不足：</p>
+<ol>
+<li><p>历史记录保存数目有限，默认1000条</p>
+</li>
+<li><p>记录不详细，不记录命令执行时间/执行用户名/用户ip等</p>
+</li>
+<li><p>历史记录会丢失，主要有两种情况：</p>
+<ol>
+<li>bash异常退出 </li>
+<li>同一用户多处登录或开了多个会话，只会记录最后退出的会话历史</li>
+</ol>
+</li>
+</ol>
+<p>所以我决心自己记录下<code>bash_history</code> 并把它写到ES之中<a href="https://fanquqi.github.io/2017/06/12/file-beat%E6%8E%A5%E5%85%A5ELK/" target="_blank" rel="external">传送门</a>,这样有人做了什么非法的事情，即使他清空了历史记录我的ES中也能存着他的罪证，除非他每条history都秒删，在速度上超过filebeat的读取的速度，事实证明不怎么可能。</p>
+<h2 id="常规rsyslog实现"><a href="#常规rsyslog实现" class="headerlink" title="常规rsyslog实现"></a>常规rsyslog实现</h2><blockquote>
+<p><a href="http://www.361way.com/history-log-audit/4147.html" target="_blank" rel="external">参考链接</a></p>
+<h3 id="配置全局bash历史记录格式"><a href="#配置全局bash历史记录格式" class="headerlink" title="配置全局bash历史记录格式"></a>配置全局bash历史记录格式</h3><p>在/etc/bashrc中写入<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">export PROMPT_COMMAND=&apos;RETRN_VAL=$?;logger -p local6.debug &quot;$(who am i) [$$]: $(history 1 | sed &quot;s/^[ ]*[0-9]\+[ ]*//&quot; ) [$RETRN_VAL]&quot;&apos;</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h3 id="配置rsyslog"><a href="#配置rsyslog" class="headerlink" title="配置rsyslog"></a>配置rsyslog</h3><p>新增文件/etc/rsyslog.d/bash.conf,内容<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">local6.*    /var/log/bash_history.log</div></pre></td></tr></table></figure></p>
+<h3 id="重启rsyslogd"><a href="#重启rsyslogd" class="headerlink" title="重启rsyslogd"></a>重启rsyslogd</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">systemctl restart rsyslogd</div></pre></td></tr></table></figure>
+<h3 id="ansible-脚本"><a href="#ansible-脚本" class="headerlink" title="ansible 脚本"></a>ansible 脚本</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">---</div><div class="line"></div><div class="line">#- name: add scripts to bashrc</div><div class="line">#  lineinfile:</div><div class="line">#    dest=/etc/bashrc</div><div class="line">#    line=&#123;&#123;item&#125;&#125;</div><div class="line">#  with_items: &apos;&#123;&#123;bashrc_line&#125;&#125;&apos;</div><div class="line">#  register: profile</div><div class="line">- name: copy file to /etc</div><div class="line">  copy: src=bash_log.conf dest=/var/tmp</div><div class="line"></div><div class="line">- name: echo to /etc/bashrc</div><div class="line">  shell: cat /var/tmp/bash_log.conf &gt;&gt; /etc/bashrc</div><div class="line">  register: bashrc</div><div class="line"></div><div class="line">- name: source file</div><div class="line">  shell: source /etc/bashrc</div><div class="line">  when: bashrc.changed</div><div class="line"></div><div class="line"></div><div class="line">- name: copy bash.conf to /etc/rsyslog.d</div><div class="line">  copy: src=bash.conf dest=/etc/rsyslog.d</div><div class="line">  register: rsyslog_conf</div><div class="line"></div><div class="line">- name: restart rsyslog</div><div class="line">  service: name=rsyslog.service state=restarted</div><div class="line">  when: rsyslog_conf.changed</div></pre></td></tr></table></figure>
+<p>刷到每个机器上就好了   注意最好配置下logrotate每天切割一下</p>
+<p>这样就可以在kibana中看到每个登录人员的操作情况了。</p>
+<h2 id="查看用户痕迹过程展示"><a href="#查看用户痕迹过程展示" class="headerlink" title="查看用户痕迹过程展示"></a>查看用户痕迹过程展示</h2><p>上面中控机上是每个人对应一个自己名字拼音的用户，使用此用户跳到线上机器，但是测试环境是直接本地可以连，测试被人搞坏了进度delay怎么办？也需要查证，可以使用以下方法<br><img src="http://or2jd66dq.bkt.clouddn.com/bash_history_modify.png" alt=""></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;起因，有个哥们儿要离职，直接上线上把他机器训练的东西拷贝到电脑本地，我们用的vpn，有些服务对此有点依赖，不详细说，总之影响到了一丢丢线上的情况，所以CTO很不高兴，机器历史记录也没有，啥都没有，多亏他承认了。但是我这个运维还是多少显得有点尴尬。&lt;
+    
+    </summary>
+    
+    
+      <category term="bash" scheme="http://yoursite.com/tags/bash/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>通过ucloud_API查看资源价格</title>
+    <link href="http://yoursite.com/2017/07/11/ucloud-API%E4%BD%BF%E7%94%A8/"/>
+    <id>http://yoursite.com/2017/07/11/ucloud-API使用/</id>
+    <published>2017-07-11T09:34:50.000Z</published>
+    <updated>2017-07-12T02:51:11.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。</p>
+</blockquote>
+<pre><code>ucloud提供了官方的`apk`[链接](https://github.com/ucloud-web/python-sdk-v2.git)
+</code></pre><p>有的同学直接把它写成了python命令 <a href="https://pypi.python.org/pypi/ucli/" target="_blank" rel="external">链接</a></p>
+<p>本来只是想做一个统计价格的工具，写着写着，就像反正收集实例信息还不如都挨个统计一下展示出来，<br>因为：</p>
+<ol>
+<li>ucloud信息展示的并不清晰  </li>
+<li>如果看到价格有异常肯定第一时间想知道到底哪个贵些，贵在哪里，更方便直观一些</li>
+</ol>
+<p>我在下边主要展示一下自己手写的几个脚本通过API获取实例信息，再通过实例信息获取实例价格，最后统一发送到influxDB中去到grafana上呈现。定时每天跑一次。代码水平有限，大家请不要嘲笑。</p>
+<p>先来看下他的apk和配置文件<br>他的public_key 和 private_key 涉及到自己独特的加秘方式。可以去ucloud官网看看 </p>
+<h2 id="apkpy"><a href="#apk-py" class="headerlink" title="apk.py"></a><code>apk.py</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div></pre></td><td class="code"><pre><div class="line"># -*- coding: utf-8 -*-</div><div class="line">import hashlib, json, httplib</div><div class="line">import urlparse</div><div class="line">import urllib</div><div class="line">import sys</div><div class="line">from config import *</div><div class="line"></div><div class="line"></div><div class="line">class UCLOUDException(Exception):</div><div class="line">    def __str__(self):</div><div class="line">        return &quot;Error&quot;</div><div class="line"></div><div class="line"></div><div class="line">def _verfy_ac(private_key, params):</div><div class="line">    items = params.items()</div><div class="line">    items.sort()</div><div class="line"></div><div class="line">    params_data = &quot;&quot;</div><div class="line">    for key, value in items:</div><div class="line">        params_data = params_data + str(key) + str(value)</div><div class="line"></div><div class="line">    params_data = params_data+private_key</div><div class="line"></div><div class="line">    &apos;&apos;&apos;use sha1 to encode keys&apos;&apos;&apos;</div><div class="line">    hash_new = hashlib.sha1()</div><div class="line">    hash_new.update(params_data)</div><div class="line">    hash_value = hash_new.hexdigest()</div><div class="line">    return hash_value</div><div class="line"></div><div class="line"></div><div class="line">class UConnection(object):</div><div class="line">    def __init__(self, base_url):</div><div class="line">        self.base_url = base_url</div><div class="line">        o = urlparse.urlsplit(base_url)</div><div class="line">        if o.scheme == &apos;https&apos;:</div><div class="line">            self.conn = httplib.HTTPSConnection(o.netloc)</div><div class="line">        else:</div><div class="line">            self.conn = httplib.HTTPConnection(o.netloc)</div><div class="line"></div><div class="line">    def __del__(self):</div><div class="line">        self.conn.close()</div><div class="line"></div><div class="line">    def get(self, resouse, params):</div><div class="line">        resouse += &quot;?&quot; + urllib.urlencode(params)</div><div class="line">        print(&quot;%s%s&quot; % (self.base_url, resouse))</div><div class="line">        self.conn.request(&quot;GET&quot;, resouse)</div><div class="line">        response = json.loads(self.conn.getresponse().read())</div><div class="line">        return response</div><div class="line"></div><div class="line"></div><div class="line">class UcloudApiClient(object):</div><div class="line">    # 添加 设置 数据中心和  zone 参数</div><div class="line">    def __init__(self, base_url, public_key, private_key):</div><div class="line">        self.g_params = &#123;&#125;</div><div class="line">        self.g_params[&apos;PublicKey&apos;] = public_key</div><div class="line">        self.private_key = private_keyurl</div><div class="line">        self.conn = UConnection(base_url)</div><div class="line"></div><div class="line">    def get(self, uri, params):</div><div class="line">        # print params</div><div class="line">        _params = dict(self.g_params, **params)</div><div class="line"></div><div class="line">        if project_id :</div><div class="line">            _params[&quot;ProjectId&quot;] = project_id</div><div class="line"></div><div class="line">        _params[&quot;Signature&quot;] = _verfy_ac(self.private_key, _params)</div><div class="line">        return self.conn.get(uri, _params)</div></pre></td></tr></table></figure>
+<h2 id="confpy"><a href="#conf-py" class="headerlink" title="conf.py"></a><code>conf.py</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">#-*- encoding: utf-8 -*-</div><div class="line">#配置公私钥&quot;&quot;&quot;</div><div class="line">public_key  = &quot;at************************&quot;</div><div class="line">private_key = &quot;e7***************&quot;</div><div class="line">#project_id = &quot;******&quot; # 项目ID 请在Dashbord 上获取</div><div class="line"></div><div class="line">base_url    = &quot;https://api.ucloud.cn&quot;</div></pre></td></tr></table></figure>
+<h2 id="collect_uhost_pricepy"><a href="#collect-uhost-price-py" class="headerlink" title="collect_uhost_price.py"></a>collect_uhost_price.py</h2><blockquote>
+<p>通过查看机器示例，按付费方式查看机器价格。<br>具体查看<a href="https://docs.ucloud.cn/api/uhost-api/index" target="_blank" rel="external">ucloud uhost API</a><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/python</div><div class="line">#-*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author:fanquanqing</div><div class="line"># collect ucloud uhost price</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">from collections import Iterable</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"></div><div class="line">#host_list = []</div><div class="line"></div><div class="line"># 收集uhost信息</div><div class="line">def collect_uhost_info(Regions_list,ProjectId):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    包含 hostname, ip, region, cpu, mem, diskspace, chargetype, count, ImageId, osname.</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    host_info_list = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">        &quot;Action&quot;:&quot;DescribeUHostInstance&quot;,</div><div class="line">        &quot;Region&quot;:Region,</div><div class="line">        &quot;ProjectId&quot;:ProjectId,</div><div class="line">        &quot;Limit&quot;:&quot;1000&quot;</div><div class="line">        &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        length = response[&apos;TotalCount&apos;]</div><div class="line">        for i in range(length):</div><div class="line">            host_info = &#123;&#125;</div><div class="line">            #ImageId = response[&quot;UHostSet&quot;][i][&quot;BasicImageId&quot;].encode(&quot;utf-8&quot;)</div><div class="line">            ChargeType = response[&quot;UHostSet&quot;][i][&quot;ChargeType&quot;].encode(&quot;utf-8&quot;)</div><div class="line">            #host_info[&quot;Action&quot;] = &quot;GetUHostInstancePrice&quot;</div><div class="line">            host_info[&quot;Region&quot;] = Region</div><div class="line">            host_info[&quot;ImageId&quot;] = &quot;uimage-kg0w4u&quot;</div><div class="line">            host_info[&quot;Hostname&quot;] = response[&quot;UHostSet&quot;][i][&quot;Name&quot;]</div><div class="line">            host_info[&quot;CPU&quot;] = response[&quot;UHostSet&quot;][i][&quot;CPU&quot;]</div><div class="line">            host_info[&quot;Memory&quot;] = response[&quot;UHostSet&quot;][i][&quot;Memory&quot;]</div><div class="line"></div><div class="line">            if len(response[&quot;UHostSet&quot;][i][&quot;DiskSet&quot;]) &gt; 1:</div><div class="line">                host_info[&quot;DiskSpace&quot;] = response[&quot;UHostSet&quot;][i][&quot;DiskSet&quot;][1][&quot;Size&quot;]</div><div class="line">            else:</div><div class="line">                host_info[&quot;DiskSpace&quot;]=0</div><div class="line">            host_info[&quot;Count&quot;] = 1</div><div class="line">            host_info[&quot;ChargeType&quot;] = ChargeType</div><div class="line">            host_info[&quot;OsName&quot;] = response[&quot;UHostSet&quot;][i][&quot;OsName&quot;].split()[0]</div><div class="line">            host_info[&quot;loaclIP&quot;] = response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;][0][&quot;IP&quot;]</div><div class="line">            if len(response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;])&gt;1:</div><div class="line">                host_info[&quot;EIP&quot;]=response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;][1][&quot;IP&quot;]</div><div class="line">            else:</div><div class="line">                host_info[&quot;EIP&quot;]=&quot;none&quot;</div><div class="line"></div><div class="line">            host_info_list.append(host_info)</div><div class="line">    #print host_info_list</div><div class="line">    return host_info_list</div><div class="line"></div><div class="line"></div><div class="line">#通过机器配置得到某一台机器价格</div><div class="line">def get_uhost_price(host_instance_info):</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters= host_instance_info</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">#    print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    price = float(response[&quot;PriceSet&quot;][0].values()[0])</div><div class="line">    return price</div><div class="line"></div><div class="line">#通过机器配置信息得到所有机器价格</div><div class="line">def get_all_uhost_price(host_info_list):</div><div class="line"></div><div class="line">    for host_info in host_info_list:</div><div class="line">        host_params=&#123;&#125;</div><div class="line">        host_params[&quot;Action&quot;]=&quot;GetUHostInstancePrice&quot;</div><div class="line">        host_params[&quot;ImageId&quot;]=host_info[&quot;ImageId&quot;]</div><div class="line">        host_params[&quot;CPU&quot;]=host_info[&quot;CPU&quot;]</div><div class="line">        host_params[&quot;Memory&quot;]=host_info[&quot;Memory&quot;]</div><div class="line">        host_params[&quot;Count&quot;]=host_info[&quot;Count&quot;]</div><div class="line">        host_params[&quot;DiskSpace&quot;]=host_info[&quot;DiskSpace&quot;]</div><div class="line">        host_params[&quot;Region&quot;]=&quot;cn-bj2&quot;</div><div class="line">        host_params[&quot;ChargeType&quot;]=host_info[&quot;ChargeType&quot;]</div><div class="line">        if host_params[&quot;ChargeType&quot;]==&quot;Year&quot;:</div><div class="line">            price = get_uhost_price(host_params)</div><div class="line">        elif host_params[&quot;ChargeType&quot;]==&quot;Month&quot;:</div><div class="line">            price = get_uhost_price(host_params)*12</div><div class="line">        else:</div><div class="line">            price=0</div><div class="line">            print &quot;有临时机器请排查。&quot;</div><div class="line">        host_info[&quot;Price&quot;]=price</div><div class="line"></div><div class="line">    return host_info_list</div><div class="line"></div><div class="line">def collect_uhost_price(setting_info):</div><div class="line"></div><div class="line">    host_info_total = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            host_info_list = collect_uhost_info(Regions_list,ProjectId)</div><div class="line">            project_host_list = get_all_uhost_price(host_info_list)</div><div class="line">            host_info_total.extend(project_host_list)</div><div class="line">    return host_info_total</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    host_info_list = collect_uhost_info([&apos;cn-bj2&apos;,&apos;hk&apos;],&quot;org-oddm1w&quot;)</div><div class="line">    host_price_list = get_all_uhost_price(host_info_list)</div><div class="line">    #print host_price_list</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_eip_pricepy"><a href="#collect-eip-price-py" class="headerlink" title="collect_eip_price.py"></a>collect_eip_price.py</h2><blockquote>
+<p>收集弹性IP信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"># author:fanquanqing</div><div class="line"># collect ucloud eip price</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"># 得到所有的EIP实例信息</div><div class="line">def get_eip_instance(Regions_list,ProjectId):</div><div class="line">    eip_all = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:Region, &quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        for eip in response[&apos;EIPSet&apos;]:</div><div class="line">            eip_instance = &#123;&#125;</div><div class="line">            # 地域</div><div class="line">            eip_instance[&apos;Region&apos;]=Region</div><div class="line">            # IP</div><div class="line">            eip_instance[&apos;IP&apos;]=eip[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line"></div><div class="line">            # 运营商线路</div><div class="line">            eip_instance[&apos;OperatorName&apos;]=eip[&apos;EIPAddr&apos;][0][&apos;OperatorName&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            # 带宽</div><div class="line">            eip_instance[&apos;Bandwidth&apos;]=eip[&apos;Bandwidth&apos;]</div><div class="line">            # 付费周期</div><div class="line">            eip_instance[&apos;ChargeType&apos;]=eip[&apos;ChargeType&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            # 付费方式(是否绑定共享带宽)</div><div class="line">            eip_instance[&apos;PayMode&apos;]=eip[&apos;PayMode&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            eip_all.append(eip_instance)</div><div class="line"></div><div class="line">    return eip_all</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line"></div><div class="line"># 查看单个EIP实例价格</div><div class="line">def get_eip_price(eip):</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=eip</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print response</div><div class="line">    price = response[&apos;PriceSet&apos;][0][&apos;Price&apos;]</div><div class="line">    return price</div><div class="line"></div><div class="line"></div><div class="line"># 获取所有EIP价格</div><div class="line">def get_all_eip_price(eip_all):</div><div class="line"></div><div class="line">    for eip_info in eip_all:</div><div class="line">        eip_params=&#123;&#125;</div><div class="line">        eip_params[&apos;Action&apos;]=&quot;GetEIPPrice&quot;</div><div class="line">        eip_params[&apos;Region&apos;]=eip_info[&apos;Region&apos;]</div><div class="line">        eip_params[&apos;OperatorName&apos;]=eip_info[&apos;OperatorName&apos;]</div><div class="line">        eip_params[&apos;Bandwidth&apos;]=eip_info[&apos;Bandwidth&apos;]</div><div class="line">        eip_params[&apos;ChargeType&apos;]=eip_info[&apos;ChargeType&apos;]</div><div class="line">        eip_params[&apos;PayMode&apos;]=eip_info[&apos;PayMode&apos;]</div><div class="line">        if eip_params[&apos;ChargeType&apos;]==&quot;Year&quot;:</div><div class="line">            price = get_eip_price(eip_params)</div><div class="line">        elif eip_params[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = get_eip_price(eip_params)*12</div><div class="line">        else:</div><div class="line">            price=0</div><div class="line">            print &quot;有临时EIP请排查&quot;</div><div class="line">        eip_info[&quot;Price&quot;]=price</div><div class="line">    return eip_all</div><div class="line"></div><div class="line"></div><div class="line">def collect_eip_price(setting_info):</div><div class="line">    eip_info_total = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            eip_all=get_eip_instance(Regions_list,ProjectId)</div><div class="line">            price_all=get_all_eip_price(eip_all)</div><div class="line">            eip_info_total.extend(price_all)</div><div class="line">    #print eip_info_total</div><div class="line">    return eip_info_total</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_eip_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_udisk_pricepy"><a href="#collect-udisk-price-py" class="headerlink" title="collect_udisk_price.py"></a>collect_udisk_price.py</h2><blockquote>
+<p>收集云硬盘信息，这个只是取到实例自己手动算的价格<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author: fanquanqing</div><div class="line"># 收集ucloud云硬盘信息 及价格</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"># 获取udisk 信息</div><div class="line">def get_udisk_info(Regions_list,ProjectId):</div><div class="line">    udisk_list = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeUDisk&quot;, &quot;Region&quot;:Region, &quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        for udisk in response[&apos;DataSet&apos;]:</div><div class="line">            udisk_dic = &#123;&#125;</div><div class="line">            udisk_dic[&apos;Region&apos;] = Region</div><div class="line">            #udisk_dic[&apos;Action&apos;] = &quot;DescribeUDiskPrice&quot;</div><div class="line">            udisk_dic[&apos;Size&apos;] = udisk[&apos;Size&apos;]</div><div class="line">            udisk_dic[&apos;ChargeType&apos;] = udisk[&apos;ChargeType&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            udisk_dic[&apos;UHostName&apos;] = udisk[&apos;UHostName&apos;]</div><div class="line">            udisk_dic[&apos;Quantity&apos;] = 1</div><div class="line">            udisk_dic[&apos;Zone&apos;] = &quot;cn-bj2-02&quot;</div><div class="line">            udisk_list.append(udisk_dic)</div><div class="line">    return udisk_list</div><div class="line"></div><div class="line"># 通过udisk信息获取价格</div><div class="line">def get_udisk_price(udisk_list):</div><div class="line">    for udisk in udisk_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        udisk_params=&#123;&#125;</div><div class="line">        udisk_params[&apos;Action&apos;]=&quot;DescribeUDiskPrice&quot;</div><div class="line">        udisk_params[&apos;Region&apos;]=udisk[&apos;Region&apos;]</div><div class="line">        udisk_params[&apos;Size&apos;]=udisk[&apos;Size&apos;]</div><div class="line">        udisk_params[&apos;ChargeType&apos;]=udisk[&apos;ChargeType&apos;]</div><div class="line">        udisk_params[&apos;Quantity&apos;]=udisk[&apos;Quantity&apos;]</div><div class="line">        udisk_params[&apos;Zone&apos;]=udisk[&apos;Zone&apos;]</div><div class="line">        Parameters = udisk_params</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        if udisk_params[&apos;ChargeType&apos;]==&quot;Year&quot;:</div><div class="line">            price = response[&apos;DataSet&apos;][0][&apos;Price&apos;]/100</div><div class="line">        elif udisk_params[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = response[&apos;DataSet&apos;][0][&apos;Price&apos;]/10</div><div class="line">        else:</div><div class="line">            print &quot;有付费方式异常的云硬盘，请排查。&quot;</div><div class="line">        udisk[&quot;Price&quot;]=price</div><div class="line">    return udisk_list</div><div class="line"></div><div class="line"># 通过付费周期获取udisk价格</div><div class="line">def collect_udisk_price(setting_info):</div><div class="line">    udisk_price_info = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            udisk_list = get_udisk_info(Regions_list,ProjectId)</div><div class="line">            udisk_price_info.extend(get_udisk_price(udisk_list))</div><div class="line">    return udisk_price_info</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_udisk_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_sharebandwidth_pricepy"><a href="#collect-sharebandwidth-price-py" class="headerlink" title="collect_sharebandwidth_price.py"></a>collect_sharebandwidth_price.py</h2><blockquote>
+<p>收集共享带宽信息,因为没有计算价格的API这个价格也是手动算的。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line">#author fanquanqing</div><div class="line">#收集共享带宽信息获取每年消费情况</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line">def get_bandwidth_info(Regions_list,ProjectId):</div><div class="line">    bandwidth = []</div><div class="line">    for Region in Regions_list:</div><div class="line"></div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;,&quot;Region&quot;:Region,&quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        #print response</div><div class="line">        for bw in response[&apos;DataSet&apos;]:</div><div class="line">            bw_instance = &#123;&#125;</div><div class="line">            bw_instance[&apos;ShareBandwidth&apos;] =  bw[&apos;ShareBandwidth&apos;]</div><div class="line">            bw_instance[&apos;ChargeType&apos;] = bw[&apos;ChargeType&apos;]</div><div class="line">            bw_instance[&apos;Name&apos;]=bw[&apos;Name&apos;]</div><div class="line">            bandwidth.append(bw_instance)</div><div class="line">    return bandwidth</div><div class="line">#   print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line"></div><div class="line">def get_price(bandwidth):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    价格计算说明:ucloud没有提供API查询共享带宽价格，所有的共享带宽价格都是90/M/月 月付*12,年付*10</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    price_list = []</div><div class="line">    for bw in bandwidth:</div><div class="line">        if bw[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = bw[&apos;ShareBandwidth&apos;]*90*12</div><div class="line">            bw[&quot;Price&quot;]=price</div><div class="line">        else:</div><div class="line">            price = bw[&apos;ShareBandwidrh&apos;]</div><div class="line">            bw[&quot;Price&quot;]=price</div><div class="line">    return bandwidth</div><div class="line"></div><div class="line">def collect_sharebandwidth_price(setting_info):</div><div class="line">    bw_price_info = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            bw_info = get_bandwidth_info(Regions_list,ProjectId)</div><div class="line">            bw_price_info.extend(get_price(bw_info))</div><div class="line">    #print bw_price_info</div><div class="line">    return bw_price_info</div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_sharebandwidth_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure>
+<h2 id="get_all_pricepy"><a href="#get-all-price-py" class="headerlink" title="get_all_price.py"></a>get_all_price.py</h2><blockquote>
+<p>给各实例价格求和，发送到influxdb。可以每天跑一下cron更新下内容。<strong>里面发送的influxDB是事先封装好的包直接导入的，并不是官方包</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author: fanquanqing</div><div class="line">#import datatime</div><div class="line">from collect_eip_price import collect_eip_price</div><div class="line">from collect_uhost_price import collect_uhost_price</div><div class="line">from collect_sharebandwidth_price import collect_sharebandwidth_price</div><div class="line">from collect_udisk_price import collect_udisk_price</div><div class="line">from op_tools.api_influxdb import write_data_to_influxdb</div><div class="line"></div><div class="line">def get_price(setting_info):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    各个实例price求和,并把实例信息发送到influxdb</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_price=0</div><div class="line">    uhost_price=0</div><div class="line">    sharebw_price=0</div><div class="line">    udisk_price=0</div><div class="line">    eip_price_info_list = collect_eip_price(setting_info)</div><div class="line">    for eip_info in eip_price_info_list:</div><div class="line">        eip_headers = eip_info.keys()</div><div class="line">        eip_rows = []</div><div class="line">        eip_rows.append(eip_info.values())</div><div class="line">        #print eip_headers, eip_rows</div><div class="line">        # 发送EIP数据到influxdb</div><div class="line">        write_data_to_influxdb(&apos;EIP_info_daliy&apos;, eip_headers, eip_rows, [&apos;IP&apos;, &apos;OperatorName&apos;, &apos;ChargeType&apos;])</div><div class="line">        eip_price += round(eip_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    uhost_price_info_list = collect_uhost_price(setting_info)</div><div class="line">    for uhost_info in uhost_price_info_list:</div><div class="line">        uhost_headers=uhost_info.keys()</div><div class="line">        uhost_rows=[]</div><div class="line">        uhost_rows.append(uhost_info.values())</div><div class="line">        #print uhost_headers, uhost_rows</div><div class="line">        # 发送云主机信息到influxdb</div><div class="line">        write_data_to_influxdb(&apos;Uhost_info_daliy&apos;, uhost_headers, uhost_rows, [&apos;Hostname&apos;,&apos;ChargeType&apos;])</div><div class="line">        uhost_price += round(uhost_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    sharebandwidth_info_list = collect_sharebandwidth_price(setting_info)</div><div class="line">    for sharebandwidth_info in sharebandwidth_info_list:</div><div class="line">        sharebw_headers=sharebandwidth_info.keys()</div><div class="line">        sharebw_rows=[]</div><div class="line">        sharebw_rows.append(sharebandwidth_info.values())</div><div class="line">        #print sharebw_headers, sharebw_rows</div><div class="line">        # 发送共享带宽信息到influxdb</div><div class="line">        write_data_to_influxdb(&apos;ShareBandwidth_info_daliy&apos;,sharebw_headers,sharebw_rows,[])</div><div class="line">        sharebw_price += round(sharebandwidth_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    udisk_info_list=collect_udisk_price(setting_info)</div><div class="line">    for udisk_info in udisk_info_list:</div><div class="line">        udisk_headers=udisk_info.keys()</div><div class="line">        udisk_rows=[]</div><div class="line">        udisk_rows.append(udisk_info.values())</div><div class="line">        #print udisk_headers, udisk_rows</div><div class="line">        write_data_to_influxdb(&apos;Udisk_info_daliy&apos;, udisk_headers,udisk_rows,[&apos;UHostName&apos;,&apos;Region&apos;])</div><div class="line">        udisk_price += round(udisk_info[&apos;Price&apos;])</div><div class="line">    # 托管机房价格</div><div class="line">    physical_price = get_physical_host_price()</div><div class="line">    total_price=eip_price+uhost_price+sharebw_price+udisk_price+physical_price</div><div class="line">    # 价格列表</div><div class="line">    price_list=[eip_price,uhost_price,sharebw_price,udisk_price,total_price]</div><div class="line">    price_headers=[&apos;eip_price&apos;,&apos;uhost_price&apos;,&apos;sharebw_price&apos;,&apos;udisk_price&apos;,&apos;total_price&apos;]</div><div class="line">    price_rows=[]</div><div class="line">    price_rows.append(price_list)</div><div class="line">    write_data_to_influxdb(&apos;Ucloud_price_total_daliy&apos;,price_headers,price_rows,[])</div><div class="line"></div><div class="line">    #print uhost_price</div><div class="line">    return uhost_price</div><div class="line"></div><div class="line"># 托管机器价格(两个机柜一个10M外网)</div><div class="line">def get_physical_host_price():</div><div class="line">    host_price = 9000*2*12</div><div class="line">    tg_cloud_switch_port_price = (288*2+217)*12</div><div class="line">    tg_bandwidth_price = 10*90*12</div><div class="line">    physical_price = host_price+tg_bandwidth_price+tg_cloud_switch_port_price</div><div class="line">    return physical_price</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    # 可用区列表</div><div class="line">    #Regions_list = [&apos;cn-bj2&apos;,&apos;hk&apos;]</div><div class="line">    # 项目ID列表</div><div class="line">    #Project_Id_list = [&apos;org-shbbct&apos;,&apos;org-oddm1w&apos;]</div><div class="line">    # 项目ID对应关系</div><div class="line">    setting_info = &#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;</div><div class="line">    get_price(setting_info)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="grafana效果展示"><a href="#grafana效果展示" class="headerlink" title="grafana效果展示"></a>grafana效果展示</h2><blockquote>
+<p>grafana跟influxDB配合的非常好，设置也非常简单。下面我在下面放几张效果图。</p>
+</blockquote>
+<p><strong>简单查询语句</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_influxdb.png" alt=""></p>
+<p><strong>table展示效果</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_eip.png" alt=""></p>
+<p><strong>价格图展示</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_price.png" alt=""></p>
+<h2 id="获取实时带宽信息并发送报警到钉钉"><a href="#获取实时带宽信息并发送报警到钉钉" class="headerlink" title="获取实时带宽信息并发送报警到钉钉"></a>获取实时带宽信息并发送报警到钉钉</h2><blockquote>
+<p>这个跟上面的脚本没有关联，只是获取实时带宽使用量的报警脚本。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line">import urllib2</div><div class="line">import time</div><div class="line">#from op_tools import falcon</div><div class="line"></div><div class="line">#实例化 API 句柄</div><div class="line">localtime = time.asctime( time.localtime(time.time()) )</div><div class="line"></div><div class="line">def get_eip_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取EIP对应的主机名，以及EIP信息返回</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    arg_length = len(sys.argv)</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    eip_info_list = response[&apos;EIPSet&apos;]</div><div class="line">    eip_dic = &#123;&#125;</div><div class="line">    for eip_info in eip_info_list:</div><div class="line">        # EIP绑定主机名</div><div class="line">        eip_host = eip_info[&apos;Resource&apos;][&apos;ResourceName&apos;]</div><div class="line">        eip_ip = eip_info[&apos;EIPAddr&apos;][0][&apos;IP&apos;].encode(&apos;utf-8&apos;)</div><div class="line">        eip_id = eip_info[&apos;EIPId&apos;]</div><div class="line">        dic = &#123;&#125;</div><div class="line">        dic[eip_ip] = eip_id</div><div class="line">        #print &quot;eip_host:%s,dic:%s&quot; % (eip_host,dic)</div><div class="line">        eip_dic[eip_host] = dic</div><div class="line">    #print len(eip_dic)</div><div class="line">    eip_dic[&apos;nginx-online1&apos;] = &#123;&apos;106.75.28.177&apos;: u&apos;eip-00gv0l&apos;&#125;</div><div class="line">    return eip_dic</div><div class="line"></div><div class="line">def get_eip_usage(eip_dic):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取每个EIP的实时用量(要求EIPid),</div><div class="line">    return list:[&#123;ip:usage&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_usage_dic = &#123;&#125;</div><div class="line">    for eip_host in eip_dic:</div><div class="line">        #eip_useage_dic = &#123;&#125;</div><div class="line">        eip_id=eip_dic[eip_host].values()[0].encode(&quot;utf-8&quot;)</div><div class="line">        #print eip_id</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">                    &quot;Action&quot;:&quot;DescribeBandwidthUsage&quot;,</div><div class="line">                    &quot;Region&quot;:&quot;cn-bj2&quot;,</div><div class="line">                    &quot;EIPIds.1&quot;:eip_id,</div><div class="line">                &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">        #print response</div><div class="line">        eip_usage = response[&apos;EIPSet&apos;][0][&apos;CurBandwidth&apos;]</div><div class="line">        eip_usage_dic[eip_host]=eip_usage</div><div class="line">        #eip_usage_list.append(eip_useage_dic)</div><div class="line">    return eip_usage_dic</div><div class="line"></div><div class="line">def sendto_falcon(eip_usage_list):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    报警发送到falcon</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    collect_step = 60</div><div class="line">    counter_type = falcon.CounterType.GAUGE</div><div class="line">    metric = &quot;bandwidthusage&quot;</div><div class="line">    for eip_usage in eip_usage_list:</div><div class="line">        tags=&quot;host=&quot; + eip_usage.keys()[0]</div><div class="line">        value=eip_usage.values()[0]</div><div class="line">        #print value</div><div class="line"></div><div class="line">def get_sharebw_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取共享带宽的带宽大小，以及所包含的EIP,</div><div class="line">    return list:[&#123;&apos;eiplist&apos;:[ip1,ip1],&apos;bandwidth&apos;:20&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line"></div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    share_bw_list = response[&apos;DataSet&apos;]</div><div class="line">    share_bw_info = []</div><div class="line">    for share_bw in share_bw_list:</div><div class="line">        share_bw_dic = &#123;&#125;</div><div class="line">        bandwidth = share_bw[&apos;ShareBandwidth&apos;]</div><div class="line">        eip_list = []</div><div class="line">        for eip_dic in share_bw[&apos;EIPSet&apos;]:</div><div class="line">            ip = eip_dic[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line">            eip_list.append(ip)</div><div class="line">        share_bw_dic[&apos;bandwidth&apos;]=bandwidth</div><div class="line">        share_bw_dic[&apos;eiplist&apos;]=eip_list</div><div class="line">        share_bw_info.append(share_bw_dic)</div><div class="line">    return share_bw_info</div><div class="line"></div><div class="line">def sum():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    返回比值，并简单记录log到/var/log/ubandwidth.log</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_dic = get_eip_info()</div><div class="line">    #print eip_dic</div><div class="line">    eip_to_host = &#123;&#125;</div><div class="line">    # 通过eip_dic获取IP-host对此应关系dic</div><div class="line">    for host in eip_dic:</div><div class="line">        eip = eip_dic[host].keys()[0]</div><div class="line">        eip_to_host[eip]=host</div><div class="line">    #print eip_to_host</div><div class="line">    eip_usage_dic = get_eip_usage(eip_dic)</div><div class="line">    #print eip_usage_dic</div><div class="line">    share_bw_info = get_sharebw_info()</div><div class="line">    #print share_bw_info</div><div class="line">    #各带宽和与带宽比值</div><div class="line">    ratios = &#123;&#125;</div><div class="line">    for share_bandwidth in share_bw_info:</div><div class="line">        bandwidth = share_bandwidth[&apos;bandwidth&apos;]</div><div class="line">        sum = 0</div><div class="line">        for eip in share_bandwidth[&apos;eiplist&apos;]:</div><div class="line">            host = eip_to_host[eip]</div><div class="line">            usage = eip_usage_dic[host]</div><div class="line">            sum += usage</div><div class="line">        #带宽用量与带宽的比值</div><div class="line">        ratio = sum/bandwidth</div><div class="line">        parts = [str(bandwidth),str(sum),str(ratio)]</div><div class="line">        log =localtime + &apos; &apos; + &apos;,&apos;.join(parts) + &apos;\n&apos;</div><div class="line">        with open(&apos;/var/log/ubandwidth.log&apos;,&apos;a&apos;) as f:</div><div class="line">            f.write(log)</div><div class="line">            f.close()</div><div class="line"></div><div class="line">        ratios[bandwidth]=ratio</div><div class="line"></div><div class="line">    return ratios</div><div class="line"></div><div class="line"></div><div class="line">def send_to_dingtalk(content):</div><div class="line"></div><div class="line">    url = &quot;https://oapi.dingtalk.com/robot/send?access_token=17cf865229a63452ff411243b53d64949d5a54b1ee8774e20e1ec7d4c5d60f43&quot;</div><div class="line">    #con=&#123;&quot;msgtype&quot;:&quot;text&quot;,&quot;text&quot;:&#123;&quot;content&quot;:content&#125;,&quot;isAtAll&quot;: &quot;true&quot;&#125;</div><div class="line">    con=&#123;&quot;msgtype&quot;:&quot;markdown&quot;,&quot;markdown&quot;:&#123;&quot;title&quot;:&quot;ucloud共享带宽报警&quot;,&quot;text&quot;:content&#125;,&quot;isAtAll&quot;: &quot;ture&quot;&#125;</div><div class="line">    jd=json.dumps(con)</div><div class="line">    req=urllib2.Request(url,jd)</div><div class="line">    req.add_header(&apos;Content-Type&apos;, &apos;application/json&apos;)</div><div class="line">    response=urllib2.urlopen(req)</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    ratios=sum()</div><div class="line">    localtime = time.asctime( time.localtime(time.time()) )</div><div class="line">    for bw in ratios:</div><div class="line">        if ratios[bw] &gt; 0.8:</div><div class="line">            content = u&quot;# **ucloud共享带宽报警** - %d兆那个。。。\n\n - 用量超过百分之80 \n - **值**:%f \n &gt; [请排查...](https://console.ucloud.cn/unet/sharebandwidth)&quot; % (bw,ratios[bw])</div><div class="line">            send_to_dingtalk(content)</div></pre></td></tr></table></figure></p>
+</blockquote>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着
+    
+    </summary>
+    
+      <category term="python" scheme="http://yoursite.com/categories/python/"/>
+    
+    
+      <category term="python" scheme="http://yoursite.com/tags/python/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>nginx之location,upstream,rewrite</title>
+    <link href="http://yoursite.com/2017/07/08/nginx%E4%B9%8Blocation-upstream-rewrite/"/>
+    <id>http://yoursite.com/2017/07/08/nginx之location-upstream-rewrite/</id>
+    <published>2017-07-08T06:19:45.000Z</published>
+    <updated>2017-08-01T11:09:52.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>nginx配置第三篇，<a href="https://fanquqi.github.io/2017/07/06/nginx%E4%B9%8B%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AE/" target="_blank" rel="external">nginx安装配置</a>中讲了很多基础配置，这次讲一下具体的操作配置。</p>
+</blockquote>
+<h2 id="location配置"><a href="#location配置" class="headerlink" title="location配置"></a>location配置</h2><blockquote>
+<p>location模块工作在虚拟主机server之下，对URL进行匹配，如果匹配成功就按照该location之中写的语句进行操作。</p>
+</blockquote>
+<p><strong>语法</strong> </p>
+<p>location [=|~|~*|^~] /uri/ { … }</p>
+<p><strong>匹配规则</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">模式</th>
+<th style="text-align:center">含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">location = /uri</td>
+<td style="text-align:center">= 表示精确匹配，只有完全匹配上才能生效。</td>
+</tr>
+<tr>
+<td style="text-align:left">location ^~ /uri</td>
+<td style="text-align:center">^~ 开头对URL路径进行前缀匹配，并且在正则之前。</td>
+</tr>
+<tr>
+<td style="text-align:left">location ~ pattern</td>
+<td style="text-align:center">区分大小写的正则匹配</td>
+</tr>
+<tr>
+<td style="text-align:left">location ~* pattern</td>
+<td style="text-align:center">不区分大小写的正则匹配</td>
+</tr>
+<tr>
+<td style="text-align:left">location /uri</td>
+<td style="text-align:center">不带任何修饰符，也表示前缀匹配，但是在正则匹配之后</td>
+</tr>
+<tr>
+<td style="text-align:left">location /</td>
+<td style="text-align:center">通用匹配，任何未匹配到其它location的请求都会匹配到，相当于switch中的default</td>
+</tr>
+</tbody>
+</table>
+<p>那么如果我们在一个虚拟主机下边写了很多location 规则，哪一个先匹配哪一个后匹配呢？<br>是这样的。<br>nginx会根据模糊程度排序的</p>
+<ul>
+<li>首先精确匹配 =</li>
+<li>其次前缀匹配 ^~</li>
+<li>其次是按文件中顺序的正则匹配</li>
+<li>然后匹配不带任何修饰的前缀匹配。</li>
+<li>最后是交给 / 通用匹配</li>
+<li>当有匹配成功时候，停止匹配，按当前匹配规则处理请求</li>
+</ul>
+<h2 id="upstream"><a href="#upstream" class="headerlink" title="upstream"></a>upstream</h2><blockquote>
+<p>负载均衡模块</p>
+</blockquote>
+<p><strong>语法</strong></p>
+<h2 id="rewrite"><a href="#rewrite" class="headerlink" title="rewrite"></a>rewrite</h2><blockquote>
+<p>rewrite功能就是，使用nginx提供的全局变量或自己设置的变量，结合正则表达式和标志位实现url重写以及重定向。rewrite只能放在server{},location{},if{}中，并且只能对域名后边的除去传递的参数外的字符串起作用</p>
+</blockquote>
+<p><strong>语法</strong><br><code>rewrite regex replacement [flag];</code></p>
+<p>flag标志位</p>
+<ul>
+<li>last – 相当于Apache的[L]标记，表示完成rewrite，基本上都用这个 Flag</li>
+<li>break – 中止 Rewirte，不再继续匹配</li>
+<li>redirect – 返回临时重定向的 HTTP 状态 302</li>
+<li>permanent – 返回永久重定向的 HTTP 状态 301</li>
+</ul>
+<p>last一般写在server和if中，而break一般使用在location中<br>last不终止重写后的url匹配，即新的url会再从server走一遍匹配流程，而break终止重写后的匹配</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;nginx配置第三篇，&lt;a href=&quot;https://fanquqi.github.io/2017/07/06/nginx%E4%B9%8B%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AE/&quot; target=&quot;_blank
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="nginx" scheme="http://yoursite.com/tags/nginx/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>nginx之HTTPS配置</title>
+    <link href="http://yoursite.com/2017/07/07/nginx%E4%B9%8BHTTPS%E9%85%8D%E7%BD%AE/"/>
+    <id>http://yoursite.com/2017/07/07/nginx之HTTPS配置/</id>
+    <published>2017-07-07T07:15:38.000Z</published>
+    <updated>2017-07-20T06:20:35.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>https现在是标配了，HTTPS 可以给用户带来更安全、比如减少了被劫持的概率，更好隐私保护的网络体验，这些好处大家都耳熟能详，本文不再赘述。现在很多浏览器都在推行HTTPS的普及。尽快升级吧。</p>
+</blockquote>
+<p>其实大体就是分为<code>ssl证书申请</code>和<code>配置HTTPS</code>两个步骤</p>
+<h2 id="证书申请"><a href="#证书申请" class="headerlink" title="证书申请"></a>证书申请</h2><p>这次介绍并没有从申请证书开始，因为之前已经申请过了，申请步骤请<a href="https://aotu.io/notes/2016/08/16/nginx-https/index.html" target="_blank" rel="external">参考</a><br>SSL 证书主要有两个功能：加密和身份证明，通常需要购买，也有免费的，通过第三方 SSL 证书机构颁发。分为企业级别和个人级别。<br>SSL 具体加密实现<a href="http://www.ruanyifeng.com/blog/2014/02/ssl_tls.html" target="_blank" rel="external">参考</a><br>查看证书相关配置，包括哪个机构颁发的，过期时间等等信息可以到<a href="https://www.chinassl.net" target="_blank" rel="external">https://www.chinassl.net</a> 自助查看</p>
+<h2 id="nginx-https配置"><a href="#nginx-HTTPS配置" class="headerlink" title="nginx HTTPS配置"></a>nginx HTTPS配置</h2><p>首先我们把得到的domain.key domain.crt 放到 nginx的conf下，<br>可以在nginx.conf 的<code>server</code>中配置</p>
+<p><strong>基础配置</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line"> server &#123;</div><div class="line">     listen              443 ssl http2;</div><div class="line">     #证书文件(注意路径及权限)</div><div class="line">     ssl on;</div><div class="line">     ssl_certificate     example.com.crt;</div><div class="line">     #私钥文件</div><div class="line">     ssl_certificate_key example.com.key;</div><div class="line">     ssl_protocols       TLSv1 TLSv1.1 TLSv1.2;</div><div class="line">     ssl_ciphers         HIGH:!aNULL:!MD5;</div><div class="line"></div><div class="line">#....</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>必须使用监听命令 listen 的 ssl 参数和定义服务器证书文件和私钥文件</p>
+<p><code>ssl_protocols</code> 可以用来限制连接只包含 SSL/TLS 的加強版本，默认值如上。<br><code>ssl_ciphers</code> 选择加密套件，不同的浏览器所支持的套件（和顺序）可能会不同。这里指定的是OpenSSL库能够识别的写法，你可以通过 openssl -v cipher ‘RC4:HIGH:!aNULL:!MD5’（后面是你所指定的套件加密算法） 来看所支持算法。</p>
+<p><strong>加强 HTTPS 安全性</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ssl_prefer_server_ciphers ON;</div><div class="line">add_header X-Frame-Options DENY;</div><div class="line">add_header X-Content-Type-Options nosniff;</div><div class="line">add_header X-Xss-Protection 1;</div></pre></td></tr></table></figure>
+<p><code>ssl_prefer_server_ciphers ON</code>设置协商加密算法时，优先使用我们服务端的加密套件，而不是客户端浏览器的加密套件。<br><code>add_header X-Frame-Options DENY</code>减少点击劫持</p>
+<p><strong>HTTPS优化参数</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">ssl_session_cache shared:SSL:10m;</div><div class="line"></div><div class="line">ssl_session_timeout 10m;</div><div class="line">ssl_buffer_size 1400;</div></pre></td></tr></table></figure></p>
+<p><code>ssl_session_cache shared:SSL:10m;</code> 设置ssl/tls会话缓存的类型和大小。如果设置了这个参数一般是shared，buildin可能会参数内存碎片，默认是none，和off差不多，停用缓存。如shared:SSL:10m表示我所有的nginx工作进程共享ssl会话缓存，官网介绍说1M可以存放约4000个sessions。<br><code>ssl_session_timeout 10m;</code>  客户端可以重用会话缓存中ssl参数的过期时间。<br><code>ssl_buffer_size 1400;</code> 缓冲区调优，从1.5.9版本开始,Nginx允许使用ssl_buffer_size指令自定义TLS缓冲区的大小，默认值是 16 KB,但是这个值不一定是最优化的,尤其是你希望首字节数据被尽早发送时,有报告显示使 用1400字节的配置可以显著减少延迟。<a href="http://fangpeishi.com/optimizing-tls-record-size.html" target="_blank" rel="external">参考</a></p>
+<p><strong>配置参考</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div></pre></td><td class="code"><pre><div class="line">ssl                  on;</div><div class="line">ssl_session_timeout  30m;</div><div class="line">ssl_protocols  TLSv1 TLSv1.1 TLSv1.2;</div><div class="line"></div><div class="line">ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA:!CAMELLIA;</div><div class="line"></div><div class="line">ssl_prefer_server_ciphers   on;</div><div class="line">ssl_buffer_size 1400;</div><div class="line"></div><div class="line">ssl_session_cache    shared:SSL:10m;</div><div class="line">ssl_certificate      domain.crt;</div><div class="line">ssl_certificate_key  domain.key;</div></pre></td></tr></table></figure></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;https现在是标配了，HTTPS 可以给用户带来更安全、比如减少了被劫持的概率，更好隐私保护的网络体验，这些好处大家都耳熟能详，本文不再赘述。现在很多浏览器都在推行HTTPS的普及。尽快升级吧。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;其实大体
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="nginx" scheme="http://yoursite.com/tags/nginx/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>influxdb使用笔记</title>
+    <link href="http://yoursite.com/2017/07/06/influxdb%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/"/>
+    <id>http://yoursite.com/2017/07/06/influxdb使用笔记/</id>
+    <published>2017-07-06T12:00:36.000Z</published>
+    <updated>2017-07-12T05:44:25.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>之前从ucloudAPI上取下来的数据需要存到influxdb中，在grafana中进行展示。grafana是我自行部署推广使用的，influxdb是别的同事之前就开始用了。我这次正好用上，所以仔细看了下。虽然人家都把API封装好了，只是拿过来就用的事儿。但是我只是个爱学习的孩子。。。</p>
+</blockquote>
+<h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><blockquote>
+<p>关于时序数据库，除了常用的ElasticSearch之外，InfluxDB也是一个选择。</p>
+</blockquote>
+<p>InfluxDB 使用 go 语言编写。个人认为几个外在的优点在于：</p>
+<ul>
+<li>无特殊依赖，几乎开箱即用（如ES需要Java）；</li>
+<li>自带HTTP管理界面，免插件配置（如ES的kopf或者head）；</li>
+<li>自带数据过期功能；</li>
+<li>类SQL查询语句（再提ES，查询使用自己的DSL，虽然也可以通过sql插件来使用类SQL进行查询）；</li>
+<li>自带权限管理，精细到“表”级别；</li>
+</ul>
+<h2 id="关键词解读"><a href="#关键词解读" class="headerlink" title="关键词解读"></a>关键词解读</h2><p>参考<a href="https://docs.influxdata.com/influxdb/v1.0/concepts/glossary" target="_blank" rel="external">官方文档</a></p>
+<ul>
+<li><code>time</code>  这个概念首先说明，influxdb本身就是一个时序数据库类似Elasticsearch，所以用来做流处理是很好的，一次插入，多次读写，少改动。 每次插入一条数据都必须要求一个时间戳，自己不定义他就自动生成。</li>
+<li><code>database</code>  就是数据库</li>
+<li><code>measurement</code> 相当于mysql中的table</li>
+<li><code>field</code> 类似于MySQL的字段，没有索引的列，是influxDB数据必须的组成部分。</li>
+<li><code>tags</code> 相当于MySQL带索引的字段，不必须</li>
+<li><code>retention policy (RP)</code> 描述数据存储多久，以及规定几个分片</li>
+<li><code>point</code> 同一时间戳产生的数据集合</li>
+<li><code>sereis</code>  measurement, tag set, and retention policy 都相同的数据集合</li>
+</ul>
+<h2 id="cli命令"><a href="#CLI命令" class="headerlink" title="CLI命令"></a>CLI命令</h2><blockquote>
+<p>CLI<a href="https://docs.influxdata.com/influxdb/v1.2/introduction/getting_started/" target="_blank" rel="external">官方文档</a><br>influx的CLI命令与mysql还是有很多相似之处的。不过用influxdb我们更多的是用他的API很少用到CLI，只是了解下，自己调试代码的时候可以验证一下自己的数据到底写没写进来。</p>
+</blockquote>
+<h4 id="建库"><a href="#建库" class="headerlink" title="建库"></a>建库</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">CREATE DATABASE mydb</div><div class="line"></div><div class="line">验证：</div><div class="line">SHOW DATABASES</div><div class="line"></div><div class="line">使用：</div><div class="line">USE mydb</div></pre></td></tr></table></figure>
+<p>现在，建好库可以插入数据了。</p>
+<p><strong>数据类型</strong><br>只支持以下几种<br><code>float</code>,<code>integer</code>,<code>string</code>,<code>Boolean</code>,<code>Timestamp</code></p>
+<h4 id="建表并插入数据"><a href="#建表并插入数据" class="headerlink" title="建表并插入数据"></a>建表并插入数据</h4><p>这条命令表示: 新建一个表名为<code>cpu</code>的表，设置<code>host</code>为<code>serverA</code>,<code>region</code>为<code>us_west</code>,<code>value</code>为0.64,其中 <strong>host,region</strong> 属性为<code>tags</code>, <strong>value</strong> 属性为<code>field</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">INSERT cpu,host=serverA,region=us_west value=0.64</div></pre></td></tr></table></figure></p>
+<h4 id="查询数据"><a href="#查询数据" class="headerlink" title="查询数据"></a>查询数据</h4><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">SELECT &quot;host&quot;, &quot;region&quot;, &quot;value&quot; FROM &quot;cpu&quot; WHERE &quot;value&quot;&gt;0.9</div></pre></td></tr></table></figure>
+<h2 id="http-api使用"><a href="#HTTP-API使用" class="headerlink" title="HTTP API使用"></a>HTTP API使用</h2><p><a href="https://docs.influxdata.com/influxdb/v1.0/guides/writing_data/" target="_blank" rel="external">官方文档查看</a></p>
+<p>建库<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">curl -i -XPOST http://localhost:8086/query --data-urlencode &quot;q=CREATE DATABASE mydb&quot;</div></pre></td></tr></table></figure></p>
+<p>单条数据写入</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">curl -i -XPOST &apos;http://localhost:8086/write?db=mydb&apos; --data-binary &apos;cpu_load_short,host=server01,region=us-west value=0.64 1434055562000000000&apos;</div></pre></td></tr></table></figure>
+<p>多条数据写入<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">curl -i -XPOST &apos;http://localhost:8086/write?db=mydb&apos; --data-binary &apos;cpu_load_short,host=server02 value=0.67</div><div class="line">cpu_load_short,host=server02,region=us-west value=0.55 1422568543702900257</div><div class="line">cpu_load_short,direction=in,host=server01,region=us-west value=2.0 1422568543702900257&apos;</div></pre></td></tr></table></figure></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;之前从ucloudAPI上取下来的数据需要存到influxdb中，在grafana中进行展示。grafana是我自行部署推广使用的，influxdb是别的同事之前就开始用了。我这次正好用上，所以仔细看了下。虽然人家都把API封装好了，只是拿过来就用
+    
+    </summary>
+    
+      <category term="influxdb" scheme="http://yoursite.com/categories/influxdb/"/>
+    
+    
+      <category term="influxdb" scheme="http://yoursite.com/tags/influxdb/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>nginx之安装配置</title>
+    <link href="http://yoursite.com/2017/07/06/nginx%E4%B9%8B%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AE/"/>
+    <id>http://yoursite.com/2017/07/06/nginx之安装配置/</id>
+    <published>2017-07-06T11:52:30.000Z</published>
+    <updated>2017-08-01T11:13:28.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>nginx 相关知识参考网站<br><a href="http://tengine.taobao.org/" target="_blank" rel="external">Tengine</a></p>
+<blockquote>
+<p>nginx 首先从安装配置说起问题说起</p>
+</blockquote>
+<h1 id="安装"><a href="#安装" class="headerlink" title="安装"></a>安装</h1><blockquote>
+<p>一般都是源码编译安装，直接解压编译安装就好没有啥可说的 一般需要安装PCRE zlib openssl 库 以及所需要模块例如openLDAP等</p>
+</blockquote>
+<p><strong>特别说明</strong><br>安装完成之后再添加模块,需要重启服务，reload不会生效。<br><a href="http://taokey.blog.51cto.com/4633273/1318719" target="_blank" rel="external">参考链接</a></p>
+<h1 id="配置"><a href="#配置" class="headerlink" title="配置"></a>配置</h1><blockquote>
+<p>nginx的配置是一门很深的功课，首先我们要对基本的http协议特别了解，配置过程可能要各种rewrite，各种location。不要慌，一点一点来。</p>
+</blockquote>
+<h2 id="配置文件参数详解"><a href="#配置文件参数详解" class="headerlink" title="配置文件参数详解"></a>配置文件参数详解</h2><blockquote>
+<p>首先对<code>nginx.conf</code>里面的各个配置项进行一下解释。 </p>
+</blockquote>
+<p>首先说下少数几个高级配置，一般写在开头，模块配置之上<br><strong>进程运行的用户组</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">user  nginx nginx;</div></pre></td></tr></table></figure></p>
+<p><strong>进程数</strong> 一般跟CPU核数相匹配。nginx启动后有多少个worker处理请求，不包括master，(master不处理请求，二十主要接受客户端的请求并分配给worker处理)这里还涉及到下边要说的<code>worker_connections</code>, 正常被大家接受的nginx最大连接数就是靠这两个计算出来的.</p>
+<ul>
+<li>nginx作为http服务器的时候：<ul>
+<li>max_clients = worker_processes * worker_connections</li>
+</ul>
+</li>
+<li>nginx作为反向代理服务器的时候：<ul>
+<li>max_clients = worker_processes * worker_connections/4</li>
+</ul>
+</li>
+</ul>
+<p>具体为什么去<a href="http://liuqunying.blog.51cto.com/3984207/1420556" target="_blank" rel="external">参考</a><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">worker_processes  8;</div></pre></td></tr></table></figure></p>
+<p><strong>最大打开文件数量</strong> 这个如果没有设置会使用linux系统默认的文件最大打开数 <code>ulimit -a</code>可以查看到。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">worker_rlimit_nofile 65535;</div></pre></td></tr></table></figure></p>
+<h3 id="events模块"><a href="#Events模块" class="headerlink" title="Events模块"></a>Events模块</h3><p>这里包含nginx所有处理连接的设置<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">events &#123;</div><div class="line">    worker_connections 2048;</div><div class="line"></div><div class="line">    use epoll;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p><code>worker_connections</code>表示一个worker同时打开最大连接数。<br><code>use epoll</code>定义轮询方法 如果你的内核为linux 2.6+ 应该使用epoll异步非阻塞模型</p>
+<h3 id="http模块"><a href="#http模块" class="headerlink" title="http模块"></a>http模块</h3><blockquote>
+<p>HTTP模块控制着nginx http处理的所有核心特性</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">http &#123;</div><div class="line"> </div><div class="line">    server_tokens off;</div><div class="line"> </div><div class="line">    sendfile on;</div><div class="line"></div><div class="line">    tcp_nopush on;</div><div class="line">    tcp_nodelay on;</div><div class="line"></div><div class="line">    ...</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p><code>server_tokens</code> 这个只是在错误页面不显示nginx版本，为了安全。<br><code>sendfile</code> ,<code>tcp_nopush</code>,<code>tcp_nodelay</code>这三条一般同时出现 提高读写速度 提升性能 ，tcp_nopush 依赖sendfile, tcp_nodelay 不缓存数据，(禁用nagle算法，发送小数据不缓存直接发)</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">log_format main &apos;$remote_addr - - [$time_local] &quot;$request&quot; $status $body_bytes_sent &quot;$http_referer&quot; &apos;</div><div class="line">                &apos;&quot;$http_user_agent&quot; [$request_time, $upstream_response_time] $host ($remote_port) &quot;sid=$cookie_sessionid&quot;&apos;;</div><div class="line">access_log  logs/access.log  main;</div></pre></td></tr></table></figure>
+<p>定义日志格式 <code>main</code> 下边引用该格式。其实可以设置成json格式的，以后收集解析也方便。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">lingering_close off;</div><div class="line">keepalive_timeout 5;</div><div class="line">send_timeout 20;</div><div class="line">proxy_connect_timeout 30;</div><div class="line">proxy_read_timeout 20;</div><div class="line">proxy_send_timeout 20;</div></pre></td></tr></table></figure>
+<p><code>lingering_close</code> 定义关闭连接的方式，有三个选项 <strong>off|on|always</strong> <code>off</code>：请求完成之后，关闭连接，不管此时有没有收到客户端数据；<code>on</code>是中间值，一般情况下在关闭连接前都会处理连接上的用户发送的数据，除了有些情况下在业务上认定这之后的数据是不必要的；<code>always</code>无条件处理完所有用户请求。Tengine 默认off效率高些，但是存在误杀状况，nginx默认on 算个小坑。</p>
+<p><code>keepalive_timeout</code> 给客户端分配keep-alive链接超时时间</p>
+<p><code>send_timeout</code> 发送响应的超时时间，两个客户端请求之间的时间</p>
+<p>这几个一般用在nginx做反向代理的时候<br><code>proxy_connect_timeout</code> 后端服务器连接的超时时间_发起握手等候响应超时时间<br><code>proxy_read_timeout</code> 后端服务器处理请求的时间<br><code>proxy_send_timeout</code> 后端服务器数据回传时间_就是在规定时间之内后端服务器必须传完所有的数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"></div><div class="line">include /etc/nginx/mime.types;</div><div class="line">default_type application/octet-stream;</div></pre></td></tr></table></figure>
+<p>include只是一个在当前文件中包含另一个文件内容的指令。这里我们使用它来加载稍后会用到的一系列的MIME类型。其实就是content-type与扩展名的映射。在客户端发来一个请求之后，nginx通过扩展名找到对应的content-type,下载返回的头信息中，浏览器收到之后会按照这个类型做解析展示。这样就不至于发生css文件本当做html一样当文本展示了。如果在mime.types中没有找到，会使用default_type</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">## GZIP Setting</div><div class="line">gzip  on;</div><div class="line">gzip_min_length  1000;</div><div class="line">gzip_buffers     4 8k;</div><div class="line">gzip_http_version  1.0;</div><div class="line">gzip_comp_level  5;</div><div class="line">gzip_types       text/plain text/css application/x-javascript application/json application/xml;</div></pre></td></tr></table></figure>
+<p>gzip是GNU zip的缩写，它是一个GNU自由软件的文件压缩程序，可以极大的加速网站.有时压缩比率高到80%,近来测试了一下,最少都有40%以上,还是相当不错的。<br><code>gzip</code><br>决定是否开启gzip模块</p>
+<p><code>gzip_min_length</code><br>当返回内容大于此值时才会使用gzip进行压缩,以K为单位,当值为0时，所有页面都进行压缩<br><code>gzip_buffers</code><br>设置gzip申请内存的大小,其作用是按块大小的倍数申请内存空间<br><code>gzip_http_version</code><br>用于识别http协议的版本，早期的浏览器不支持gzip压缩，用户会看到乱码，所以为了支持前期版本加了此选项,目前此项基本可以忽略<br><code>gzip_comp_level</code><br>设置gzip压缩等级，等级越底压缩速度越快文件压缩比越小，反之速度越慢文件压缩比越大<br><code>gzip_types</code><br>设置需要压缩的MIME类型,非设置值不进行压缩</p>
+<h2 id="server模块"><a href="#server模块" class="headerlink" title="server模块"></a>server模块</h2><blockquote>
+<p>server模块是http的子模块，定义虚拟主机<br>格式<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">server &#123;</div><div class="line">    listen      80;</div><div class="line">    server_name map.baidu.com www.baidu.com; </div><div class="line">    client_max_body_size 10m;</div><div class="line">    root   /Users/yangyi/www;</div><div class="line">    index  index.php index.html index.htm; </div><div class="line">    charset utf-8;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+</blockquote>
+<p><code>server {}</code> server标志虚拟主机开始，在 {} 中配置<br><code>listen</code>监听 80端口<br><code>server_name</code>用来指定IP地址或者域名，多个域名之间用空格分开。这里指定域名为map.baidu.com 或者www.baidu.com。<br><code>client_max_body_size</code>  文件上传大小<br><code>charset</code> 声明网站默认编码格式</p>
+<p>直接转发到到10.0.0.1:9000，这几个proxy_set_header的意思是改变请求头的Host为客户端的Host，ip 否则在下层的服务端会认为客户端是这台代理的nginx。<br>X-Forwarded-For 是一个 HTTP 扩展头部。HTTP/1.1（RFC 2616）协议并没有对它的定义，它最开始是由 Squid 这个缓存代理软件引入，用来表示 HTTP 请求端真实 IP。如今它已经成为事实上的标准，被各大 HTTP 代理、负载均衡等转发服务广泛使用，并被写入 RFC 7239（Forwarded HTTP Extension）标准之中。<br>格式如下</p>
+<blockquote>
+<p>X-Forwarded-For: client, proxy1, proxy2</p>
+</blockquote>
+<p>可以看到，XFF 的内容由「英文逗号 + 空格」隔开的多个部分组成，最开始的是离服务端最远的设备 IP，然后是每一级代理设备的 IP。<br>如果一个 HTTP 请求到达服务器之前，经过了三个代理 Proxy1、Proxy2、Proxy3，IP 分别为 IP1、IP2、IP3，用户真实 IP 为 IP0，那么按照 XFF 标准，服务端最终会收到以下信息：</p>
+<blockquote>
+<p>X-Forwarded-For: IP0, IP1, IP2</p>
+</blockquote>
+<p>这个在多级代理的时候可以设置下，逻辑关系更清晰。</p>
+<h2 id="location-模块"><a href="#location-模块" class="headerlink" title="location 模块"></a>location 模块</h2><blockquote>
+<p>在server内部</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">location / &#123;</div><div class="line">            root   /Users/yangyi/www;</div><div class="line">            index  index.php index.html index.htm;</div><div class="line">        &#125;</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">location / &#123;</div><div class="line">    proxy_set_header Host $host;</div><div class="line">    proxy_set_header X-Real-IP $remote_addr;</div><div class="line">    proxy_set_header X-Forwarded-For $remote_addr;</div><div class="line">    proxy_pass http://10.0.0.1:9000;</div><div class="line">    proxy_redirect default;</div><div class="line">    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;</div></pre></td></tr></table></figure>
+<p><strong>一个配置样例</strong><br>```<br>user www-data;</p>
+<p>pid /var/run/nginx.pid;</p>
+<p>worker_processes auto;</p>
+<p>worker_rlimit_nofile 100000;</p>
+<p>events {</p>
+<pre><code>worker_connections 2048;
+multi_accept on;
+use epoll;
+</code></pre><p>}</p>
+<p>http {<br>    server_tokens off;<br>    sendfile on;<br>    tcp_nopush on;<br>    tcp_nodelay on;<br>    log_format main ‘$remote_addr - - [$time_local] “$request” $status $body_bytes_sent “$http_referer” ‘<br>                ‘“$http_user_agent” [$request_time, $upstream_response_time] $host ($remote_port) “sid=$cookie_sessionid”‘;<br>    access_log  logs/access.log  main;</p>
+<pre><code>error_log /var/log/nginx/error.log crit;
+
+
+keepalive_timeout 10;
+
+client_header_timeout 10;
+
+client_body_timeout 10;
+reset_timedout_connection on;
+
+send_timeout 10;
+limit_conn_zone $binary_remote_addr zone=addr:5m;
+limit_conn addr 100;
+include /etc/nginx/mime.types;
+default_type text/html;
+charset UTF-8;
+gzip on;
+gzip_disable &quot;msie6&quot;;
+gzip_proxied any;
+gzip_min_length 1000;
+gzip_comp_level 6;
+gzip_types text/plain text/css application/json application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+open_file_cache max=100000 inactive=20s;
+open_file_cache_valid 30s;
+open_file_cache_min_uses 2;
+open_file_cache_errors on;
+include /etc/nginx/conf.d/*.conf;
+include /etc/nginx/sites-enabled/*;
+</code></pre><p>}</p>
+<p>最后 关于nginx和http https等的设置可以参考<a href="https://imququ.com/" target="_blank" rel="external">博客</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;nginx 相关知识参考网站&lt;br&gt;&lt;a href=&quot;http://tengine.taobao.org/&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;Tengine&lt;/a&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;nginx 首先从安装配置说起问题说起
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="nginx" scheme="http://yoursite.com/tags/nginx/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>记一次PHP服务部署</title>
+    <link href="http://yoursite.com/2017/07/05/%E8%AE%B0%E4%B8%80%E6%AC%A1PHP%E6%9C%8D%E5%8A%A1%E9%83%A8%E7%BD%B2/"/>
+    <id>http://yoursite.com/2017/07/05/记一次PHP服务部署/</id>
+    <published>2017-07-05T10:58:03.000Z</published>
+    <updated>2017-07-25T08:19:16.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>本来很少接触这门世界上最好的语言，公司里面也没有，但是这次有这个需求，考虑到fastcgi与uwsgi有这么一点点共同点，我就照葫芦画瓢，打算用我们测试的nginx做转发。但是踩到几个坑，听我带着悔恨一点一点的说。。。</p>
+</blockquote>
+<h2 id="nginx代理转发介绍"><a href="#nginx代理转发介绍" class="headerlink" title="nginx代理转发介绍"></a>nginx代理转发介绍</h2><p>我们的测试跟线上的服务都是用nginx做全职代理转发<br>在nginx.conf 声明如下:<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">http &#123;</div><div class="line">...</div><div class="line">include /usr/local/nginx/conf/servers/*/upstream.conf;</div><div class="line">include /usr/local/nginx/conf/servers/*/site.conf;</div><div class="line">...</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>所以就可以在server目录下建立各种监听二级域名的目录。</p>
+<p>类似这种,<code>uwsgi</code>的转发使用<code>uwsgi_pass</code> ,<code>普通web代理</code>使用<code>proxy_pass</code>,<code>fastcgi</code>使用<code>fastcgi_pass</code><br>下面举例uwsgi转发配置说明一下。<br><code>/usr/local/nginx/conf/servers/dier/site.conf</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div></pre></td><td class="code"><pre><div class="line">server &#123;</div><div class="line">    listen 443 ssl http2;</div><div class="line">    server_name dier.chunyu.me;</div><div class="line"></div><div class="line">    include /usr/local/nginx/conf/servers/common/ssl_config.location;</div><div class="line">    location / &#123;</div><div class="line">        uwsgi_pass devops_uwsgi;</div><div class="line">        include uwsgi_params;</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line"></div><div class="line">server &#123;</div><div class="line">    listen 80;</div><div class="line">    server_name .chunyu.me;</div><div class="line"># 强转https</div><div class="line">    rewrite  ^/(.*)$  https://devops.chunyu.me/$1  permanent;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p><code>/usr/local/nginx/conf/servers/dier/upstream.conf</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">upstream devops_uwsgi &#123;</div><div class="line">    server 10.9.77.8:5001;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h2 id="php服务部署"><a href="#PHP服务部署" class="headerlink" title="PHP服务部署"></a>PHP服务部署</h2><blockquote>
+<p>源码编译安装，全程Google教程,直接按照参考地址配置即可。</p>
+</blockquote>
+<p>PHP-FPM<br>PHP-FPM是一个PHP FastCGI管理器，是只用于PHP的,可以在 <a href="http://php-fpm.org/download下载得到。PHP-FPM其实是PHP源代码的一个补丁，旨在将FastCGI进程管理整合进PHP包中。必须将它patch到你的PHP源代码中，在编译安装PHP后才可以使用。FPM（FastCGI" target="_blank" rel="external">http://php-fpm.org/download下载得到。PHP-FPM其实是PHP源代码的一个补丁，旨在将FastCGI进程管理整合进PHP包中。必须将它patch到你的PHP源代码中，在编译安装PHP后才可以使用。FPM（FastCGI</a> 进程管理器）用于替换 PHP-CGI 的大部分附加功能，对于高负载网站是非常有用的。它的功能包括：</p>
+<ol>
+<li>支持平滑停止/启动的高级进程管理功能；</li>
+<li>可以工作于不同的 uid/gid/chroot 环境下，并监听不同的端口和使用不同的 php.ini 配置文件（可取代 safe_mode 的设置）；</li>
+<li>stdout 和 stderr 日志记录;</li>
+<li>在发生意外情况的时候能够重新启动并缓存被破坏的 opcode;</li>
+<li>文件上传优化支持;</li>
+<li>“慢日志” – 记录脚本（不仅记录文件名，还记录 PHP backtrace 信息，可以使用 ptrace或者类似工具读取和分析远程进程的运行数据）运行所导致的异常缓慢;</li>
+<li>fastcgi_finish_request() – 特殊功能：用于在请求完成和刷新数据后，继续在后台执行耗时的工作（录入视频转换、统计处理等）；<br>8.动态／静态子进程产生 ；</li>
+<li>基本 SAPI 运行状态信息（类似Apache的 mod_status）；</li>
+<li>基于 php.ini 的配置文件。</li>
+</ol>
+<p>环境配置<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">yum -y install gcc gcc-c++</div><div class="line">groupadd web</div><div class="line">useradd -M -s /sbin/nologin -g web php</div><div class="line">yum -y install epel-release</div><div class="line">yum -y update</div><div class="line">yum -y install libmcrypt libmcrypt-devel mcrypt mhash</div><div class="line">yum -y install libxml2-devel libpng-devel libjpeg-devel zlib bzip2 bzip2-devel \</div><div class="line">libtool-ltdl-devel pcre-devel openssl-devel freetype-devel libcurl-devel icu \</div><div class="line">perl-libintl postgresql libicu-devel</div></pre></td></tr></table></figure></p>
+<p>下载解压<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">cd /usr/local/src/</div><div class="line">wget http://cn2.php.net/distributions/php-5.6.27.tar.gz</div><div class="line">tar -zxvf php-5.6.27.tar.gz</div><div class="line">cd php-5.6.27/</div></pre></td></tr></table></figure></p>
+<p>编译安装<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div></pre></td><td class="code"><pre><div class="line">./configure \</div><div class="line">--prefix=/usr/local/php5.6.27 \</div><div class="line">--with-config-file-path=/usr/local/php5.6.27/etc/ \</div><div class="line">--enable-inline-optimization \</div><div class="line">--enable-shared \</div><div class="line">--enable-opcache \</div><div class="line">--enable-fpm \</div><div class="line">--with-fpm-user=php \</div><div class="line">--with-fpm-group=web \</div><div class="line">--with-mysql=mysqlnd \</div><div class="line">--with-mysqli=mysqlnd \</div><div class="line">--with-pdo-mysql=mysqlnd \</div><div class="line">--with-gettext \</div><div class="line">--enable-mbstring \</div><div class="line">--with-iconv \</div><div class="line">--with-mcrypt \</div><div class="line">--with-mhash \</div><div class="line">--with-openssl \</div><div class="line">--enable-bcmath \</div><div class="line">--enable-soap \</div><div class="line">--with-libxml-dir \</div><div class="line">--enable-pcntl \</div><div class="line">--enable-shmop \</div><div class="line">--enable-sysvmsg \</div><div class="line">--enable-sysvsem \</div><div class="line">--enable-sysvshm \</div><div class="line">--enable-sockets \</div><div class="line">--enable-intl \</div><div class="line">--with-curl \</div><div class="line">--with-zlib \</div><div class="line">--enable-zip \</div><div class="line">--with-bz2 \</div><div class="line">--enable-xml \</div><div class="line">--with-pcre-dir \</div><div class="line">--with-gd \</div><div class="line">--enable-static \</div><div class="line">--enable-wddx \</div><div class="line">--with-xmlrpc \</div><div class="line">--with-libdir=/usr/lib64 \</div><div class="line">--with-jpeg-dir=/usr/lib64 \</div><div class="line">--with-freetype-dir=/usr/lib64 \</div><div class="line">--with-png-dir=/usr/lib64</div></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">make &amp;&amp; make install</div></pre></td></tr></table></figure>
+<p>简单配置<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">cp php.ini-development /usr/local/php5.6.27/etc/php.ini</div><div class="line">cp /usr/local/php5.6.27/etc/php-fpm.conf.default /usr/local/php5.6.27/etc/php-fpm.conf</div></pre></td></tr></table></figure></p>
+<p>创建开机启动<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">vi /lib/systemd/system/php-fpmd.service</div></pre></td></tr></table></figure></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">[Unit]</div><div class="line">Description=The PHP FastCGI Process Manager</div><div class="line">After=network.target</div><div class="line"></div><div class="line">[Service]</div><div class="line">Type=forking</div><div class="line">PIDFile=/run/php-fpm.pid</div><div class="line">ExecStart=/usr/local/php5.6.27/sbin/php-fpm --daemonize -g /run/php-fpm.pid</div><div class="line">ExecReload=/bin/kill -USR2 $MAINPID</div><div class="line">ExecStop=/bin/kill -SIGINT $MAINPID</div><div class="line">PrivateTmp=true</div><div class="line"></div><div class="line">[Install]</div><div class="line">WantedBy=multi-user.target</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">systemctl enable php-fpmd.service</div><div class="line">systemctl start php-fpmd.service</div></pre></td></tr></table></figure>
+<p><code>注意</code> </p>
+<p><strong>php.ini</strong> 中设置<code>open_basedir=/usr/local/nginx/html/webapps</code><br><strong>php-frm.conf</strong> 中<code>security.limit_extensions = .php .html .js .css .jpg .jpeg .gif .png .htm .txt</code> </p>
+<h2 id="mysql-安装"><a href="#mysql-安装" class="headerlink" title="mysql 安装"></a>mysql 安装</h2><blockquote>
+<p>ansible 自动安装，脚本以后会附上，导入数据手动，没有任何问题</p>
+</blockquote>
+<h2 id="nginx-配置"><a href="#nginx-配置" class="headerlink" title="nginx 配置"></a>nginx 配置</h2><blockquote>
+<p>我最开始的想法是，在起PHP这个服务的云主机上起一个nginx 做web服务器。但是我组大神告诉我，不用这么麻烦直接用测试服nginx代理就好。于是我没有反驳，毕竟这个看起来更简单更合理。于是我就开始配置。。。</p>
+</blockquote>
+<p>最开始配置,如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">server &#123;</div><div class="line">    listen 80;</div><div class="line">    server_name dier.chunyu.me;</div><div class="line"></div><div class="line">    location ~ [^.]+\.php$ &#123;</div><div class="line">        root   /usr/share/webapps;</div><div class="line">        fastcgi_pass 10.0.0.1:9000;</div><div class="line">        index index.html index.php;</div><div class="line">        #fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</div><div class="line">        fastcgi_param SCRIPT_FILENAME  $document_root$fastcgi_script_name;</div><div class="line">        include fastcgi_params;</div><div class="line"></div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>写到一半，我突然发现静态文件怎么办，于是我直接把<code>location ~ [^.]+\.php$`` 改成了</code>location /<code>所有文件都这么走。
+结果问题就出现了，如下图。css文件的请求头</code>Content_type<code>为</code>text/html` </p>
+<p><img src="http://or2jd66dq.bkt.clouddn.com/css_error.png" alt=""><br>我试着在测试服nginx上各种<code>add_header</code> 都不好使，于是请教之前大神，他一脸不屑的看着我，看了三秒。。。然后他解决，我看到机器上文件的修改，一次次add_header ,过了20多分钟，他扭头给我说，这个fastcgi好像不支持静态文件代理，而且他的代码里面没有加判断。你在这个机器上装个nginx吧。。。<br>恩，于是我有用ansible跑了一遍安装nginx的脚本。<br>配置如下:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">location ~ [^.]+\.php$ &#123;</div><div class="line">    root           /usr/local/nginx/html/webapps;</div><div class="line">    fastcgi_pass   127.0.0.1:9000;</div><div class="line">    fastcgi_index  index.php;</div><div class="line">    #fastcgi_param  SCRIPT_FILENAME  /usr/local/nginx/html/webapps$fastcgi_script_name;</div><div class="line">    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</div><div class="line">    include        fastcgi.conf;</div><div class="line"> &#125;</div><div class="line"></div><div class="line">location ~* \.(css|js|png|jpg|jpeg|gif|ico)$ &#123;</div><div class="line">    expires max;</div><div class="line">    log_not_found off;</div><div class="line"> &#125;</div></pre></td></tr></table></figure>
+<p>问题解决。。。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<li>多学习，多看书，少说话</li>
+<li>如果说话学会和人一样说话</li>
+<li>多做总结，比如写博客加深一下印象，不太懂也没有关系，写着写着有可能就懂了。</li>
+</ul>
+<h2 id="一台机器上启动两个php服务"><a href="#一台机器上启动两个PHP服务" class="headerlink" title="一台机器上启动两个PHP服务"></a>一台机器上启动两个PHP服务</h2><blockquote>
+<p>SEO的哥们找我说克隆一个和之前一模一样的服务，我的原则是PHP这种漏洞比较多的服务最好还是给他们独立出来不要跟线上有联系，前不久让一个白帽子给我们扫了一下，我们才发现之前商务部门归到我们这边的一个提供PHP服务的机器直接被人拿到了root的shell，真可怕。于是，我这次把他们的数据库都从线上拆出来了。放在本地。</p>
+</blockquote>
+<p><strong>方法</strong></p>
+<p>直接再装一个php-fpm （我刚开始用一个PHP-fpm提供和两个PHP服务的动态处理在nginx中把他们的静态文件分开，事实证明不可以，会发生一些奇怪的情况，两个系统的各种配置，包括数据库都会混淆）换个端口启动就好了</p>
+<p>参考地址](<a href="https://my.oschina.net/yule526751/blog/795807" target="_blank" rel="external">https://my.oschina.net/yule526751/blog/795807</a>)</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;本来很少接触这门世界上最好的语言，公司里面也没有，但是这次有这个需求，考虑到fastcgi与uwsgi有这么一点点共同点，我就照葫芦画瓢，打算用我们测试的nginx做转发。但是踩到几个坑，听我带着悔恨一点一点的说。。。&lt;/p&gt;
+&lt;/blockquo
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="PHP" scheme="http://yoursite.com/tags/PHP/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>Git使用总结</title>
+    <link href="http://yoursite.com/2017/06/30/Git%E4%BD%BF%E7%94%A8%E6%80%BB%E7%BB%93/"/>
+    <id>http://yoursite.com/2017/06/30/Git使用总结/</id>
+    <published>2017-06-30T08:28:55.000Z</published>
+    <updated>2017-07-20T02:50:17.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>很长一段时间使用git都是只有 <code>add</code>,<code>commit</code>,<code>pull</code>,<code>push</code>等这几个简单的命令。想想自己也是使用github的人，怎么能只会这些皮毛。</p>
+</blockquote>
+<p>首先我们知道git主要是做版本控制工具，所以一些概念逻辑都是为了更好地实现这个功能。</p>
+<h2 id="三个目录概念"><a href="#三个目录概念" class="headerlink" title="三个目录概念"></a>三个目录概念</h2><p>首先要对概念清楚 </p>
+<ul>
+<li>Working Directory：工作目录，这个可以简单的理解为你在文件系统里真实看到的文件</li>
+<li>Stage（Index）：暂存“目录”，用git add命令添加的文件就到了这里，即将被commit的文件</li>
+<li>Repository：项目“目录”，用git commit提交的文件就到了这里</li>
+</ul>
+<h2 id="commit"><a href="#commit" class="headerlink" title="commit"></a>commit</h2><p>介绍几种比较6的commit的操作，记住使用git的一贯原则还是少量改动频繁提交，方便做版本控制。</p>
+<ul>
+<li>平常我们都是<code>git add ./</code>然后<code>git commit -m &quot;fix&quot;</code>提交代码</li>
+<li><p>这两条可以结合到一起直接<code>git commit -am &quot;fix&quot;</code>就做到了<br>或者指定文件<code>git commit test.txt -m &quot;fix2.0&quot;</code>.</p>
+</li>
+<li><p>修改上一次提交 <code>git commit --amend -am &quot;fix2.0, 2.5</code> 这样之前2.0的commit_id直接被覆盖了。</p>
+</li>
+</ul>
+<h2 id="checkout"><a href="#checkout" class="headerlink" title="checkout"></a>checkout</h2><ul>
+<li><p>分支相关操作：git checkout 分支名/commit hash切换到相应的分支或commit，加上-b参数则会创建分支并切换过去</p>
+<ul>
+<li>git checkout -b branch3 1a222c3  注意这里commit_id为新分支起点</li>
+</ul>
+</li>
+<li><p>恢复文件相关操作：git checkout [分支名/commit hash/HEAD快捷方式] – 文件名恢复指定分支的最新commit或指定commit或快捷方式指向的commit的文件到工作目录，若省略中间的参数，则</p>
+<ul>
+<li><p>暂存区有内容且暂存区内容与工作目录不同，则恢复暂存区的状态到工作目录(之前<code>git add</code>过恢复到当时的状态)</p>
+</li>
+<li><p>暂存区无内容，则恢复HEAD（最新的commit）的状态到工作目录</p>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="diff"><a href="#diff" class="headerlink" title="diff"></a>diff</h2><ul>
+<li>使用方式基本就是 <code>git diff [source] [target]</code> 也就是说 <code>target</code>相对于<code>source</code>有哪些变化 ,这里的target,source 可以是commit_id也可以是两个分支,同时<code>git diff master branch2</code>和<code>git diff HEAD branch2</code>显示结果是一样的</li>
+<li>只给一个参数 这个参数默认是 <code>source</code> 而<code>target</code> 默认是当前分支最新的commit</li>
+<li>不给参数 <code>source</code>为暂存区，<code>target</code>为工作目录</li>
+<li>如果想要使暂存目录作为target的话，需要使用–cached参数</li>
+</ul>
+<h2 id="reset"><a href="#reset" class="headerlink" title="reset"></a>reset</h2><ul>
+<li>git reset [commit hash/分支名/快捷方式] [文件名]类似“git add的反操作”，直接将所在commit的文件状态恢复到暂存区域。省略commit则默认为HEAD，省略文件名默认为所有文件。只改变暂存目录，不改变工作目录，当前commit不变。</li>
+<li>git reset –soft [commit hash/分支名/快捷方式]软恢复，将恢复前所在commit的文件状态恢复到暂存区，当前最新commit为参数中的commit。只改变暂存目录，不改变工作目录，当前commit改变。</li>
+<li>git reset –hard [commit hash/分支名/快捷方式]硬恢复，强制将整个项目恢复为参数中的commit时的文件状态，清空暂存目录，工作目录clean。暂存目录和工作目录同时被改变，当前commit改变。</li>
+</ul>
+<p>关于reset命令的其他补充：当前HEAD已经位于“不是最新”，是不是前面的commit都找不回来了？当然不会，reset过的操作也是可以被reset的。有两种方法：</p>
+<ol>
+<li>如果记得“最新”的hash（，则直接git reset –hard 1a222c3，则项目直接强制恢复到“最新”所在的状态。</li>
+<li>如果不记得的话，运行git reflog，这个命令会输出一个列表，包含HEAD发生的所有变化。</li>
+</ol>
+<h2 id="cherry-pick"><a href="#cherry-pick" class="headerlink" title="cherry-pick"></a>cherry-pick</h2><blockquote>
+<p>cherry-pick其实在工作中还挺常用的，就像copy一样，把一个分之上的某个或者某几个commit复制到另一个分之。一种常见的场景就是，比如我在A分支做了几次commit以后，发现其实我并不应该在A分支上工作，应该在B分支上工作，这时就需要将这些commit从A分支复制到B分支去了，这时候就需要cherry-pick命令了</p>
+</blockquote>
+<p>模拟下上面场景 在master分之上提交了两个commit  一个commit1 一个commit2，发现不应该在master上面操作，应该新建分之branch1<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">首先新建分之 从commit0开始，并切到branch1</div><div class="line">git checkout -b branch1 commit0</div><div class="line">复制master分之 两个commit到当前分之</div><div class="line">git cherry-pick commit1 commit2</div><div class="line">在master分支上将这两个commit删除。先切回master分支：</div><div class="line">git checkout master，运行git reset --hard commit0</div></pre></td></tr></table></figure></p>
+<h2 id="merge"><a href="#merge" class="headerlink" title="merge"></a>merge</h2><h2 id="rebase"><a href="#rebase" class="headerlink" title="rebase"></a>rebase</h2>]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;很长一段时间使用git都是只有 &lt;code&gt;add&lt;/code&gt;,&lt;code&gt;commit&lt;/code&gt;,&lt;code&gt;pull&lt;/code&gt;,&lt;code&gt;push&lt;/code&gt;等这几个简单的命令。想想自己也是使用github的人，怎么能只会这些皮毛
+    
+    </summary>
+    
+      <category term="git" scheme="http://yoursite.com/categories/git/"/>
+    
+    
+      <category term="git" scheme="http://yoursite.com/tags/git/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>javascripts记录</title>
+    <link href="http://yoursite.com/2017/06/27/javascripts%E8%AE%B0%E5%BD%95/"/>
+    <id>http://yoursite.com/2017/06/27/javascripts记录/</id>
+    <published>2017-06-27T09:38:57.000Z</published>
+    <updated>2017-07-06T10:22:51.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>这只是个愿望，有时间就看下，战线有可能会拖得很长，大家不要吐槽。</p>
+<h2 id="基本语法"><a href="#基本语法" class="headerlink" title="基本语法"></a>基本语法</h2></blockquote>
+<ul>
+<li><p>赋值 </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">var a = 1;</div></pre></td></tr></table></figure>
+</li>
+<li><p>if 格式(if (条件) {执行语句} 支持嵌套)</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">if (2&gt;1) &#123;</div><div class="line">    x = 1;</div><div class="line">    y = 2;</div><div class="line">    if (x&gt;y) &#123;</div><div class="line">        result = 0;</div><div class="line">    &#125;</div><div class="line">    if (x&lt;y) &#123;</div><div class="line">        result = 1;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+</li>
+<li><p>注释</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">/* 这是注释 */</div></pre></td></tr></table></figure>
+</li>
+</ul>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;这只是个愿望，有时间就看下，战线有可能会拖得很长，大家不要吐槽。&lt;/p&gt;
+&lt;h2 id=&quot;基本语法&quot;&gt;&lt;a href=&quot;#基本语法&quot; class=&quot;headerlink&quot; title=&quot;基本语法&quot;&gt;&lt;/a&gt;基本语法&lt;/h2&gt;&lt;/blockquote
+    
+    </summary>
+    
+      <category term="前端" scheme="http://yoursite.com/categories/%E5%89%8D%E7%AB%AF/"/>
+    
+    
+      <category term="javascripts" scheme="http://yoursite.com/tags/javascripts/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>HTML/CSS</title>
+    <link href="http://yoursite.com/2017/06/27/HTML-CSS/"/>
+    <id>http://yoursite.com/2017/06/27/HTML-CSS/</id>
+    <published>2017-06-27T08:37:22.000Z</published>
+    <updated>2017-06-27T09:27:41.000Z</updated>
+    
+    <content type="html"><![CDATA[<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">&lt;html&gt;</div><div class="line"></div><div class="line">&lt;head&gt;</div><div class="line">&lt;style type=&quot;text/css&quot;&gt;</div><div class="line">h1 &#123;color: red&#125;</div><div class="line">p &#123;color: blue&#125;</div><div class="line">&lt;/style&gt;</div><div class="line">&lt;/head&gt;</div><div class="line"></div><div class="line">&lt;body&gt;</div><div class="line">&lt;h1&gt;header 1&lt;/h1&gt;</div><div class="line">&lt;p&gt;A paragraph.&lt;/p&gt;</div><div class="line">&lt;/body&gt;</div><div class="line"></div><div class="line">&lt;/html&gt;</div></pre></td></tr></table></figure>
+<p>小白时期不了解HTML与CSS是怎么配合的，看上面代码 <code>&lt;head&gt;</code>标签中的CSS 声明<code>h1</code>颜色为红 <code>p</code> 颜色为蓝，其实就是把各个标签的样式在这个里面做一个总的约束，不用写到各个标签当中了。 提高了效率。</p>
+<p>&lt;!DOCTYPE html&gt;</p>
+<p><html></html></p>
+<p><head><br>    <title>test</title><br>    <script type="text/javascript"><br>        alert(‘Hello, world!’)<br>    </script>&gt;<br></head></p>
+<body>
+
+<p></p></body><br>&gt;<p></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;3&lt;/di
+    
+    </summary>
+    
+      <category term="前端" scheme="http://yoursite.com/categories/%E5%89%8D%E7%AB%AF/"/>
+    
+    
+      <category term="HTML,CSS" scheme="http://yoursite.com/tags/HTML-CSS/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>openvpn安装</title>
+    <link href="http://yoursite.com/2017/06/25/openvpn%E5%AE%89%E8%A3%85/"/>
+    <id>http://yoursite.com/2017/06/25/openvpn安装/</id>
+    <published>2017-06-25T01:58:40.000Z</published>
+    <updated>2017-06-25T02:39:27.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>openvpn不多作介绍，直接上部署过程</p>
+</blockquote>
+<h1 id="服务器环境"><a href="#服务器环境" class="headerlink" title="服务器环境"></a>服务器环境</h1><ul>
+<li>机器名：host01</li>
+<li>操作系统：CentOS Linux release 7.0.1406 (Core)</li>
+<li>内网IP：10.<strong>**</strong></li>
+<li>外网IP：12.<strong>**</strong></li>
+<li>安装方式：yum</li>
+<li>openvpn版本：OpenVPN 2.3.12 x86_64-redhat-linux-gnu</li>
+</ul>
+<h1 id="安装步骤"><a href="#安装步骤" class="headerlink" title="安装步骤"></a>安装步骤</h1><h2 id="安装前操作"><a href="#安装前操作" class="headerlink" title="安装前操作"></a>安装前操作</h2><p><code>关闭selinux 配置防火墙</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">setenforce 0</div><div class="line">sed -i &apos;/^SELINUX=/c\SELINUX=disabled&apos; /etc/selinux/config</div><div class="line">iptables -I INPUT -p udp --dport 1194 -m comment --comment &quot;openvpn&quot; -j ACCEPT</div><div class="line">iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -j MASQUERADE </div><div class="line">service iptables save</div></pre></td></tr></table></figure>
+<p><code>开启路由转发功能</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">sed -i &apos;/net.ipv4.ip_forward/s/0/1/&apos; /etc/sysctl.conf</div><div class="line">echo &quot;1&quot;&gt;/proc/sys/net/ipv4/ip_forward</div><div class="line">sysctl -p</div></pre></td></tr></table></figure></p>
+<p><code>安装openssl，lzo</code>（用于压缩通讯数据，加快传输速度）<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">yum install openssl openssl-delvel</div><div class="line">yum install lzo</div></pre></td></tr></table></figure></p>
+<h2 id="安装步骤"><a href="#安装步骤-1" class="headerlink" title="安装步骤"></a>安装步骤</h2><p><code>安装配置openvpn和easy-rsa</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">yum install openvpn easy-rsa</div></pre></td></tr></table></figure>
+<p><code>修改vars文件</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div></pre></td><td class="code"><pre><div class="line">cat /usr/share/easy-rsa/2.0/vars | grep -Ev &quot;^$|#&quot;</div><div class="line">export EASY_RSA=&quot;`pwd`&quot;</div><div class="line">export OPENSSL=&quot;openssl&quot;</div><div class="line">export PKCS11TOOL=&quot;pkcs11-tool&quot;</div><div class="line">export GREP=&quot;grep&quot;</div><div class="line">export KEY_CONFIG=`$EASY_RSA/whichopensslcnf $EASY_RSA`</div><div class="line">export KEY_DIR=&quot;$EASY_RSA/keys&quot;</div><div class="line">echo NOTE: If you run ./clean-all, I will be doing a rm -rf on $KEY_DIR</div><div class="line">export PKCS11_MODULE_PATH=&quot;dummy&quot;</div><div class="line">export PKCS11_PIN=&quot;dummy&quot;</div><div class="line">export KEY_SIZE=2048</div><div class="line">export CA_EXPIRE=3650</div><div class="line">export KEY_EXPIRE=3650</div><div class="line">export KEY_COUNTRY=&quot;CN&quot;</div><div class="line">export KEY_PROVINCE=&quot;CA&quot;</div><div class="line">export KEY_CITY=&quot;Bei Jing&quot;</div><div class="line">export KEY_ORG=&quot;Fort-Funston&quot;</div><div class="line">export KEY_EMAIL=&quot;me@myhost.mydomain&quot;</div><div class="line">export KEY_OU=&quot;MyOrganizationalUnit&quot;</div><div class="line">export KEY_NAME=&quot;EasyRSA&quot;       </div><div class="line"></div><div class="line">**copy easy_rsa目录**</div><div class="line"></div><div class="line">cp -r /usr/share/easy-rsa/2.0/* /etc/openvpn/</div></pre></td></tr></table></figure>
+<p>初始化环境变量<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">source vars</div></pre></td></tr></table></figure></p>
+<p>清除keys目录下所有与证书相关的文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">./clean-all</div></pre></td></tr></table></figure>
+<p>生成根证书ca.crt 根秘钥ca.key（一路回车）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">./build-ca</div></pre></td></tr></table></figure>
+<p>为服务端生成证书秘钥（一路回车）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">./build-key-server server</div></pre></td></tr></table></figure>
+<p>创建迪菲·赫尔曼密钥，会生成dh2048.pem文件（过程比较慢）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">./build-dh</div></pre></td></tr></table></figure>
+<p>生成ta.key（防DOS攻击，等）</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">openvpn --genkey --secret keys/ta.key</div></pre></td></tr></table></figure>
+<p>创建服务端配置文件</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">在openvpn目录下创建一个keys目录</div><div class="line">mkdir /etc/openvpn/keys</div></pre></td></tr></table></figure>
+<p>复制一份刚创建好的证书秘钥到新创建的keys</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">cp /usr/share/easy-rsa/2.0/keys/&#123;ca.crt,server.&#123;crt,key&#125;,dh2048.pem,ta.key&#125; /etc/openvpn/keys/</div></pre></td></tr></table></figure>
+<p>复制一份配置文件模板到/etc/openvpn/</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">cp /usr/share/doc/openvpn-2.3.12/sample/sample-config-files/server.conf /etc/openvpn/</div></pre></td></tr></table></figure>
+<p>修改一下配置文件(这里使用的udp,会比tcp更快一下)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line">[root@vpn ~]# cat /etc/openvpn/server.conf | grep -Ev &quot;^#|;|^$&quot;</div><div class="line">port 1194</div><div class="line">proto udp</div><div class="line">dev tun</div><div class="line">ca keys/ca.crt</div><div class="line">cert keys/server.crt</div><div class="line">key keys/server.key  # This file should be kept secret</div><div class="line">dh keys/dh2048.pem</div><div class="line">server 10.8.3.0 255.255.255.0</div><div class="line">ifconfig-pool-persist ipp.txt</div><div class="line">push &quot;route 10.0.0.0 255.0.0.0&quot;</div><div class="line">keepalive 10 120</div><div class="line">tls-auth keys/ta.key 0 # This file is secret</div><div class="line">comp-lzo</div><div class="line">persist-key</div><div class="line">persist-tun</div><div class="line">status openvpn-status.log</div><div class="line">log         openvpn.log</div><div class="line">verb 5</div></pre></td></tr></table></figure></p>
+<h2 id="openvpn启动"><a href="#openvpn启动" class="headerlink" title="openvpn启动"></a>openvpn启动</h2><p>systemctl -f enable openvpn@server.service<br>systemctl start openvpn@server.service</p>
+<h2 id="添加删除用户"><a href="#添加-删除用户" class="headerlink" title="添加|删除用户"></a>添加|删除用户</h2><p><strong>添加用户脚本</strong>(可以使用它自动添加用户)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div></pre></td><td class="code"><pre><div class="line">#!/bin/bash</div><div class="line">vpnServer1=10.9.104.39</div><div class="line">#vpnServer2=10.12.1.28</div><div class="line"># a. 在vpnserver01中创建新vpn用户</div><div class="line">if [ -z $1 ]</div><div class="line">then</div><div class="line">  echo &quot;Error:请在脚本后添加用户名作为参数，例如：&apos;./01_addUser.sh zhangsan&apos;&quot;</div><div class="line">else</div><div class="line">  cp /etc/openvpn/keys/$1.crt ./ &gt; /dev/null 2&gt;&amp;1</div><div class="line">  if [ -f $1.crt ]</div><div class="line">  then</div><div class="line">    echo &quot;$1 用户已存在，请检查！&quot;</div><div class="line">    rm -f *.crt</div><div class="line">  else</div><div class="line"></div><div class="line">    cd /etc/openvpn/ &amp;&amp; pwd &amp;&amp; source /etc/openvpn/vars &amp;&amp; ./build-key --batch $1</div><div class="line">#    cd /etc/openvpn/ &amp;&amp; pwd &amp;&amp; source /usr/share/easy-rsa/2.0/vars &amp;&amp; ./build-key --batch $1</div><div class="line">    # b. 新用户配置文件修改以及打包发送mail到用户</div><div class="line">    cd -</div><div class="line">    mkdir -p $1</div><div class="line">cat &lt;&lt; EOF &gt;&gt; ./$1/$1.ovpn</div><div class="line">client</div><div class="line">dev tun</div><div class="line">proto udp</div><div class="line">remote ****** 1194</div><div class="line">remote-random</div><div class="line">resolv-retry 10</div><div class="line">nobind</div><div class="line">persist-key</div><div class="line">persist-tun</div><div class="line">ca ca.crt</div><div class="line">cert $1.crt</div><div class="line">key $1.key</div><div class="line">remote-cert-tls server</div><div class="line">tls-auth ta.key 1</div><div class="line">comp-lzo</div><div class="line">verb 3</div><div class="line">EOF</div><div class="line"></div><div class="line">    cp /etc/openvpn/keys/&#123;ca.crt,$1.&#123;crt,key&#125;,ta.key&#125; ./$1/</div><div class="line"></div><div class="line">#    cp /etc/openvpn/keys/$1.&#123;crt,key&#125; /home/chunyu_sys/workspace/cy_ansible/roles/vpn_agent/files/</div><div class="line">    cp README.txt ./$1/;cp openVPN-clinet-config-for-Mac.pdf ./$1/</div><div class="line">    cp /etc/hosts ./$1/chunyu_hosts</div><div class="line">    tar czf $1.tar.gz $1/</div><div class="line">    rm -fr $1/</div><div class="line">#    python ./send_mail.py $1@chunyu.me &quot;[运维][vpn申请]openVPN configuration files&quot; $1.tar.gz</div><div class="line">#    mutt -s &quot;openVPN configuration files&quot; -a $1.tar.gz -- xiepengcheng@chunyu.me &lt; $1.tar.gz</div><div class="line">    #rm -f $1.tar.gz</div><div class="line">    echo &quot;用户 $1 创建完毕&quot;</div><div class="line">  fi</div><div class="line">fi</div></pre></td></tr></table></figure></p>
+<p><strong>删除用户脚本</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line">#!/bin/bash</div><div class="line">vpnServer1=host01</div><div class="line"></div><div class="line">if [ -z $1 ]</div><div class="line">then</div><div class="line">  echo &quot;Error:请在脚本后添加用户名作为参数，例如：&apos;./02_delUser.sh zhangsan&apos;&quot;</div><div class="line">else</div><div class="line">  cp /etc/openvpn/keys/$1.crt ./</div><div class="line">  if [ -f $1.crt ]</div><div class="line">  then</div><div class="line">  cd /etc/openvpn &amp;&amp; source vars &amp;&amp; ./revoke-full $1</div><div class="line">  rm -rf /etc/openvpn/keys/$1.*</div><div class="line">  echo &quot;用户 $1 删除完毕&quot;</div><div class="line">  cd -</div><div class="line">  rm -f $1.crt</div><div class="line">  else</div><div class="line">    echo &quot;$1 此VPN用户不存在，请检查!&quot;</div><div class="line">  fi</div><div class="line">fi</div></pre></td></tr></table></figure>
+<h2 id="使用tc进行限速"><a href="#使用TC进行限速" class="headerlink" title="使用TC进行限速"></a>使用TC进行限速</h2><p>因为大家都不遵守规则，总是把vpn带宽占满，影响别的用户使用，所以必须加以限制</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">tc qdisc add dev tun0 root handle 1:0 htb default 10</div><div class="line"></div><div class="line">tc class add dev tun0 parent 1:0 classid 1:1 htb rate 10Mbit burst 15k</div><div class="line"></div><div class="line">tc class add dev tun0 parent 1:1 classid 1:10 htb rate 640kbit ceil 640kbit burst 15k</div><div class="line"></div><div class="line">tc qdisc add dev tun0 parent 1:10 handle 10: sfq perturb 10</div><div class="line"></div><div class="line">tc filter add dev tun0 protocol ip parent 1:0 prio 3 u32 match ip dst 10.0.0.6 flowid 1:10</div></pre></td></tr></table></figure>
+<p>上面规则可以控制10.0.0.6这个用户的下载带宽为:80KB/s,以此类推限制其它用户.如果会写shell,可以作一个程序,加到openvpn的拨入脚本中.</p>
+<p>上传是在eth0(假如外网卡是eth0)上做.</p>
+<p>总结：<br>如果iptables关了，openvpn服务起了，客户端还是连不上，telnet 1194端口也不通，记得把云主机外网防火墙改一下。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;openvpn不多作介绍，直接上部署过程&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h1 id=&quot;服务器环境&quot;&gt;&lt;a href=&quot;#服务器环境&quot; class=&quot;headerlink&quot; title=&quot;服务器环境&quot;&gt;&lt;/a&gt;服务器环境&lt;/h1&gt;&lt;ul&gt;
+&lt;
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="openvpn" scheme="http://yoursite.com/tags/openvpn/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>shell脚本检测硬盘</title>
+    <link href="http://yoursite.com/2017/06/25/shell%E8%84%9A%E6%9C%AC%E6%A3%80%E6%B5%8B%E7%A1%AC%E7%9B%98/"/>
+    <id>http://yoursite.com/2017/06/25/shell脚本检测硬盘/</id>
+    <published>2017-06-25T01:53:32.000Z</published>
+    <updated>2017-06-25T01:57:46.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>这个脚本是依赖dell提供的megacli工具写的，使用了一段时间，但是之后就使用了falcon的硬件监控工具，包括主板，风扇，硬盘，raid卡等比这个方便。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">#!/bin/sh</div><div class="line">allhosts=&quot;host01 &quot;</div><div class="line"></div><div class="line">log_dir=/home/chunyu_sys/disklog/</div><div class="line">log_name=_raid_disk_monitor</div><div class="line">logtime=$(date +%Y%m%d --date=&apos;1 days ago&apos;)</div><div class="line">fix=.log</div><div class="line"></div><div class="line">for i in $allhosts;do</div><div class="line"></div><div class="line">host=`ssh $i &quot;hostname&quot;`</div><div class="line">echo  &quot;Checking RAID status on $host&quot; &gt;&gt; $log_dir$logtime$log_name$fix</div><div class="line">echo -e &quot;\033[31m $host \033[0m&quot;</div><div class="line">echo &quot;$host&quot; &gt;&gt;$log_dir$logtime$log_name$fix</div><div class="line">RAID_Contrller=`ssh $i &apos;megacli -AdpAllInfo -aALL |grep &quot;Product Name&quot; | cut -d: -f2&apos;`</div><div class="line">echo &quot;Controller : $RAID_Contrller&quot; &gt;&gt; $log_dir$logtime$log_name$fix</div><div class="line"></div><div class="line">Online_disk_num=`ssh $i &apos;megacli  -PDList -aALL | grep Online | wc -l&apos;`</div><div class="line"></div><div class="line">echo &quot;Totall number of Physical disks online : $Online_disk_num&quot; &gt;&gt; $log_dir$logtime$log_name$fix</div><div class="line">Degrade_disk=`ssh $i &apos;megacli -AdpAllInfo -a0 |grep &quot;Degrade&quot;&apos;`</div><div class="line">echo  &quot;$Degrade_disk&quot;  &gt;&gt;$log_dir$logtime$log_name$fix</div><div class="line">Failed_disk=`ssh $i &apos;megacli -AdpAllInfo -a0 |grep &quot;Failed Disks&quot;&apos;`</div><div class="line">echo &quot;$Failed_disk &quot; &gt;&gt;$log_dir$logtime$log_name$fix</div><div class="line"></div><div class="line">#Failed_disk_num=`ssh $i &apos;echo $Failed_disk |cut -d &quot; &quot; -f4&apos;`</div><div class="line">done</div></pre></td></tr></table></figure>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;这个脚本是依赖dell提供的megacli工具写的，使用了一段时间，但是之后就使用了falcon的硬件监控工具，包括主板，风扇，硬盘，raid卡等比这个方便。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&quot;highlight p
+    
+    </summary>
+    
+      <category term="shell" scheme="http://yoursite.com/categories/shell/"/>
+    
+    
+      <category term="shell, 脚本" scheme="http://yoursite.com/tags/shell-%E8%84%9A%E6%9C%AC/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>shell脚本自动安装zabbix_agent</title>
+    <link href="http://yoursite.com/2017/06/25/shell%E8%84%9A%E6%9C%AC%E8%87%AA%E5%8A%A8%E5%AE%89%E8%A3%85zabbix-agent/"/>
+    <id>http://yoursite.com/2017/06/25/shell脚本自动安装zabbix-agent/</id>
+    <published>2017-06-25T01:43:10.000Z</published>
+    <updated>2017-06-25T01:52:28.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>现在公司都用ansible替换zabbix了，之前写的安装zabbix_agent脚本，在这儿记录一下，以备不时之需。</p>
+</blockquote>
+<p><code>zabbix_agent_install.sh</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/bash</div><div class="line">#allhosts=&quot;mysql1 mysql2 mysql3&quot;</div><div class="line">#可以执行远端命令</div><div class="line">for host in $allhosts</div><div class="line">do</div><div class="line"></div><div class="line">echo $host</div><div class="line">ssh root@$host &quot;mkdir -p /usr/local/zabbix/etc/&quot;</div><div class="line">ssh root@$host &quot;mkdir -p /root/soft/&quot;</div><div class="line">ssh root@$host &quot;mkdir -p /var/log/zabbix/&quot;</div><div class="line"></div><div class="line">sed -i &quot;s/unknown/$host/g&quot; ./zabbix_agentd.conf</div><div class="line"></div><div class="line">cat ./zabbix_agentd.conf</div><div class="line"></div><div class="line"></div><div class="line">scp ./zabbix_agentd.conf root@$host:/usr/local/zabbix/etc/</div><div class="line"></div><div class="line">sed -i &quot;s/$host/unknown/g&quot; ./zabbix_agentd.conf</div><div class="line"></div><div class="line"></div><div class="line">scp ./zabbix-2.4.2.tar.gz root@$host:/root/soft/</div><div class="line">scp ./install_zabbix_agent_impl.sh root@$host:/root/soft/</div><div class="line">ssh root@$host &quot;bash /root/soft/install_zabbix_agent_impl.sh&quot;</div><div class="line"></div><div class="line"></div><div class="line">done</div></pre></td></tr></table></figure></p>
+<p><code>zabbix_agent_install_impl.sh</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/bash</div><div class="line"></div><div class="line">cd /root/soft</div><div class="line">tar zxvf ./zabbix-2.4.2.tar.gz</div><div class="line">cd /root/soft/zabbix-2.4.2</div><div class="line">./configure --prefix=/usr/local/zabbix --enable-agent</div><div class="line">make;make install</div><div class="line">groupadd zabbix</div><div class="line">useradd -g zabbix -s /sbin/nologin zabbix</div><div class="line">chown zabbix:zabbix /var/log/zabbix</div><div class="line">chown zabbix:zabbix /var/log/zabbix</div><div class="line">/usr/local/zabbix/sbin/zabbix_agentd -c /usr/local/zabbix/etc/zabbix_agentd.conf</div><div class="line">echo &quot;/usr/local/zabbix/sbin/zabbix_agentd -c /usr/local/zabbix/etc/zabbix_agentd.conf&quot; &gt;&gt;/etc/rc.local</div></pre></td></tr></table></figure></p>
+<p><code>zabbix_agent.conf</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div></pre></td><td class="code"><pre><div class="line">PidFile=/var/log/zabbix/zabbix_agentd.pid</div><div class="line">LogFile=/var/log/zabbix/zabbix_agentd.log</div><div class="line">#server 为zabbix_server地址</div><div class="line">Server=192.168.0.1</div><div class="line">ListenPort=10050</div><div class="line">ServerActive=192.168.0.1</div><div class="line">Hostname=unknown</div><div class="line">#HostnameItem=system.hostname</div><div class="line">RefreshActiveChecks=60</div><div class="line">BufferSize=1024</div><div class="line">UnsafeUserParameters=1</div><div class="line">Include=/usr/local/zabbix/etc/zabbix_agentd.conf.d/*.conf</div><div class="line">Timeout=20</div><div class="line">AllowRoot=1</div></pre></td></tr></table></figure>
+<p>记得把安装包也放在脚本目录下</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;现在公司都用ansible替换zabbix了，之前写的安装zabbix_agent脚本，在这儿记录一下，以备不时之需。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;code&gt;zabbix_agent_install.sh&lt;/code&gt;&lt;br&gt;&lt;fi
+    
+    </summary>
+    
+      <category term="shell" scheme="http://yoursite.com/categories/shell/"/>
+    
+    
+      <category term="shell, 脚本" scheme="http://yoursite.com/tags/shell-%E8%84%9A%E6%9C%AC/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>docker命令</title>
+    <link href="http://yoursite.com/2017/06/23/docker%E5%91%BD%E4%BB%A4/"/>
+    <id>http://yoursite.com/2017/06/23/docker命令/</id>
+    <published>2017-06-23T10:15:15.000Z</published>
+    <updated>2017-06-27T08:36:39.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>这些命令运行都是在本地Mac上运行的并非线上。<br>Mac安装docker参考<a href="https://store.docker.com/editions/community/docker-ce-desktop-mac" target="_blank" rel="external">官网</a><br>之后最好申请个加速器<a href="https://account.aliyun.com/login/login.htm?oauth_callback=https%3A%2F%2Fcr.console.aliyun.com%2F&amp;lang=zh#/imageList?onepasswdfill=3722C10CDB884416BE57D1C99C2C26A4&amp;onepasswdvault=A2A7CEC8C02947EAAFD5227D16727010" target="_blank" rel="external">阿里加速</a>，再配置一下 <code>Preferences</code>–&gt;<code>Deamon</code>–&gt;<code>Basic</code>–&gt;<code>Registry mirrors</code> </p>
+</blockquote>
+<h1 id="镜像相关"><a href="#镜像相关" class="headerlink" title="镜像相关"></a>镜像相关</h1><h2 id="获取镜像"><a href="#获取镜像" class="headerlink" title="获取镜像"></a>获取镜像</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker pull [选项] [Docker Registry地址]&lt;仓库名&gt;:&lt;标签&gt;</div></pre></td></tr></table></figure>
+<h2 id="查看镜像"><a href="#查看镜像" class="headerlink" title="查看镜像"></a>查看镜像</h2><p><code>显示镜像</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">docker images</div><div class="line">docker images ubuntu:16.04</div></pre></td></tr></table></figure></p>
+<p><code>查看虚悬镜像</code>(有些镜像升级后旧版本就会变成虚悬镜像[dangling image] 仓库  标签 都是 <none>)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker images -f dangling=True</div></pre></td></tr></table></figure></none></p>
+<p><code>删除虚悬镜像</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker rmi $(docker images -q -f dangling=true)</div></pre></td></tr></table></figure></p>
+<p><code>安装自定义格式显示</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">➜  workspace docker images --format &quot;&#123;&#123;.ID&#125;&#125;: &#123;&#123;.Repository&#125;&#125;&quot;</div><div class="line">958a7ae9e569: nginx</div></pre></td></tr></table></figure></p>
+<p><code>--filter 过滤器</code><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker images -f since=mongo:3.2</div></pre></td></tr></table></figure></p>
+<h1 id="容器相关"><a href="#容器相关" class="headerlink" title="容器相关"></a>容器相关</h1><h2 id="容器启动"><a href="#容器启动" class="headerlink" title="容器启动"></a>容器启动</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker run -d -p 80:80 --name webserver nginx</div></pre></td></tr></table></figure>
+<p>这条命令 是用<code>nginx</code> 镜像 启动一个名为webserver的 容器， 并且映射到80 端口</p>
+<h2 id="进到容器"><a href="#进到容器" class="headerlink" title="进到容器"></a>进到容器</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker exec -it webserver bash</div></pre></td></tr></table></figure>
+<p>可以进到容器里面对容器webserver容器进行更改 <code>exit</code> 退出 </p>
+<h2 id="保存镜像docker-commit"><a href="#保存镜像-docker-commit" class="headerlink" title="保存镜像(docker commit)"></a>保存镜像(docker commit)</h2><blockquote>
+<p>修改定制完容器，我们可以使用<code>docker commit</code>把它保存为新的镜像(但是因为修改历史不好查看，版本不好控制，一般很忌讳这样修改，要慎用)</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">➜ docker commit --author &quot;fanquqi&quot; --message &quot;change index.html&quot; webserver nginx:v2</div><div class="line">sha256:2ad516b8fb8a76714e58a865d8099cbf6c31c36aabf0e4733b7d2950706674c3</div></pre></td></tr></table></figure>
+<p>可以通过docker images 查看<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">➜ docker images</div><div class="line">REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE</div><div class="line">nginx               v2                  2ad516b8fb8a        10 seconds ago      109 MB</div><div class="line">nginx               latest              958a7ae9e569        3 weeks ago         109 MB</div></pre></td></tr></table></figure></p>
+<p>可以通过docker history 查看更改历史<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">➜  workspace docker history nginx:v2</div><div class="line">IMAGE               CREATED              CREATED BY                                      SIZE                COMMENT</div><div class="line">2ad516b8fb8a        About a minute ago   nginx -g daemon off;                            306 B               change index.html</div><div class="line">958a7ae9e569        3 weeks ago          /bin/sh -c #(nop)  CMD [&quot;nginx&quot; &quot;-g&quot; &quot;daem...   0 B</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c #(nop)  STOPSIGNAL [SIGTERM]         0 B</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c #(nop)  EXPOSE 80/tcp                0 B</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c ln -sf /dev/stdout /var/log/ngi...   22 B</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c apt-get update  &amp;&amp; apt-get inst...   52.2 MB</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c #(nop)  ENV NJS_VERSION=1.13.1....   0 B</div><div class="line">&lt;missing&gt;           3 weeks ago          /bin/sh -c #(nop)  ENV NGINX_VERSION=1.13....   0 B</div><div class="line">&lt;missing&gt;           6 weeks ago          /bin/sh -c #(nop)  MAINTAINER NGINX Docker...   0 B</div><div class="line">&lt;missing&gt;           6 weeks ago          /bin/sh -c #(nop)  CMD [&quot;/bin/bash&quot;]            0 B</div><div class="line">&lt;missing&gt;           6 weeks ago          /bin/sh -c #(nop) ADD file:a90ec883129f86b...   57.1 MB</div></pre></td></tr></table></figure></p>
+<p>紧接着我们可以运行这个镜像到一个新的容器<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">docker run --name web2 -d -p 81:80 nginx:v2</div></pre></td></tr></table></figure></p>
+<h2 id="使用dockerfile"><a href="#使用Dockerfile" class="headerlink" title="使用Dockerfile"></a>使用Dockerfile</h2>]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;这些命令运行都是在本地Mac上运行的并非线上。&lt;br&gt;Mac安装docker参考&lt;a href=&quot;https://store.docker.com/editions/community/docker-ce-desktop-mac&quot; target=&quot;
+    
+    </summary>
+    
+      <category term="docker" scheme="http://yoursite.com/categories/docker/"/>
+    
+    
+      <category term="docker" scheme="http://yoursite.com/tags/docker/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>docker是什么</title>
+    <link href="http://yoursite.com/2017/06/23/docker%E6%98%AF%E4%BB%80%E4%B9%88/"/>
+    <id>http://yoursite.com/2017/06/23/docker是什么/</id>
+    <published>2017-06-23T06:43:53.000Z</published>
+    <updated>2017-06-23T07:45:47.000Z</updated>
+    
+    <content type="html"><![CDATA[<blockquote>
+<p>之前公司在我来之前有个哥们儿是负责docker的，但是一直没有推广起来，测试环境都没有，这个项目就不了了之了。但是就在前几天跟ucloud架构交流，说起他之前在云上搞docker根据业务自动扩容，带宽自动调整。说的我真的眼睛放光。决心研究一下。</p>
+</blockquote>
+<p>我去年搞过虚拟化产品对虚拟化的产品做了调研。做了proxmox，类似kvm给测试服务用，开了几台虚拟机，这个产品支持机器热迁移等等。(这个博客刚开始写没多久，以后会把这些笔记也都放上来)<br>其实虚拟化可以分为以下几种</p>
+<h1 id="对比传统虚拟化"><a href="#对比传统虚拟化" class="headerlink" title="对比传统虚拟化"></a>对比传统虚拟化</h1><h2 id="传统虚拟化"><a href="#传统虚拟化" class="headerlink" title="传统虚拟化"></a>传统虚拟化</h2><p>最流行的虚拟化方法，使用Hypervisor这种中间层软件，在虚拟服务器和底层硬件之间建立一个抽象层。</p>
+<p>Hypervisor可以捕获CPU指令，为指令访问硬件控制器和外设充当中介。因而，完全虚拟化技术几乎能让任何一款操作系统不用改动就能安装到虚拟服务器上，而它们不知道自己运行在虚拟化环境下。主要缺点是，性能方面不如裸机，因为Hypervisor需要占用一些资源，给处理器带来开销。</p>
+<p><img src="http://or2jd66dq.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-06-23%20%E4%B8%8B%E5%8D%883.34.17.png" alt=""></p>
+<h2 id="操作系统层虚拟化"><a href="#操作系统层虚拟化" class="headerlink" title="操作系统层虚拟化"></a>操作系统层虚拟化</h2><p>实现虚拟化还有一个方法，那就是在操作系统层面增添虚拟服务器功能。就操作系统层的虚拟化而言，没有独立的Hypervisor层。相反主机操作系统本身就负责在多个虚拟服务器之间分配硬件资源，并且让这些服务器彼此独立。一个明显的区别是，如果使用操作系统层虚拟化，所有虚拟服务器必须运行同一操作系统。</p>
+<p>虽然操作系统层虚拟化的灵活性比较差，但本机速度性能比较高。此外，由于架构在所有虚拟服务器上使用单一、标准的操作系统，管理起来比异构环境要容易。<br><img src="http://or2jd66dq.bkt.clouddn.com/docker%E8%99%9A%E6%8B%9F%E5%8C%96.png" alt=""><br><code>docker</code>属于操作系统层面的虚拟化。<br>传统虚拟机技术是虚拟出一套硬件后，在其上运行一个完整操作系统，在该系统上再运行所需应用进程；而容器内的应用进程直接运行于宿主的内核，容器内没有自己的内核，而且也没有进行硬件虚拟。因此容器要比传统虚拟机更为轻便。它与传统hyper-V 的区别在于理念，之前的虚拟化都是以操作系统为中心的，而docker是以应用为中心，把应用的环境代码等打包成镜像直接发布。服务启动也是秒级的。</p>
+<h1 id="docker优势"><a href="#docker优势" class="headerlink" title="docker优势"></a>docker优势</h1><ul>
+<li>更高效的利用系统资源</li>
+<li>更快速的启动时间</li>
+<li>一致的运行环境</li>
+<li>持续交付和部署</li>
+<li>更轻松的迁移</li>
+<li>更轻松的维护和扩展</li>
+</ul>
+<p>这些优势都是运维喜欢的，所以运维要推行docker。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;blockquote&gt;
+&lt;p&gt;之前公司在我来之前有个哥们儿是负责docker的，但是一直没有推广起来，测试环境都没有，这个项目就不了了之了。但是就在前几天跟ucloud架构交流，说起他之前在云上搞docker根据业务自动扩容，带宽自动调整。说的我真的眼睛放光。决心研究一下。&lt;/
+    
+    </summary>
+    
+      <category term="docker" scheme="http://yoursite.com/categories/docker/"/>
+    
+    
+      <category term="docker" scheme="http://yoursite.com/tags/docker/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>shell命令之xargs与exec</title>
+    <link href="http://yoursite.com/2017/06/23/shell%E5%91%BD%E4%BB%A4%E4%B9%8Bxargs%E4%B8%8Eexec/"/>
+    <id>http://yoursite.com/2017/06/23/shell命令之xargs与exec/</id>
+    <published>2017-06-23T03:18:55.000Z</published>
+    <updated>2017-06-27T07:41:10.000Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="exec"><a href="#exec" class="headerlink" title="exec"></a>exec</h2><p>看起来就是执行某动作的命令<br>格式为 -exec echo {} \;<br>其中 <code>echo</code> 为动作, <code>{}</code> 为参数(即为之前找到的文件) <code>\</code> 转义 <code>;</code> 是结束符</p>
+<p>示例<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">find ./ -name \*.yml -exec echo &#123;&#125; \;</div><div class="line">./logrotate_conf.yml</div><div class="line">./filebeat.yml</div><div class="line">./group_vars/all.yml</div><div class="line">./group_vars/ehr.yml</div><div class="line">./group_vars/http_proxy.yml</div><div class="line">./group_vars/medweb.yml</div></pre></td></tr></table></figure></p>
+<h2 id="xargs"><a href="#xargs" class="headerlink" title="xargs"></a>xargs</h2><p>xargs依赖管道,下边直接写了几个个实例</p>
+<p><code>基本使用</code></p>
+<p>把多行文件合并成一行 或者每行指定元素个数(-n 参数) 格式输出</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div></pre></td><td class="code"><pre><div class="line">[root@md6 ~]# cat test.txt</div><div class="line">a b c d e f</div><div class="line"> g h i j k l</div><div class="line"> m n o p q r s</div><div class="line">t u v w x y z</div><div class="line"></div><div class="line">[root@md6 ~]# cat test.txt | xargs echo</div><div class="line">a b c d e f g h i j k l m n o p q r s t u v w x y z</div><div class="line">[root@md6 ~]# cat test.txt | xargs echo &gt; test1.txt</div><div class="line">[root@md6 ~]# cat test1.txt</div><div class="line">a b c d e f g h i j k l m n o p q r s t u v w x y z</div><div class="line"></div><div class="line">[root@md6 ~]# cat test.txt | xargs -n 4</div><div class="line">a b c d</div><div class="line">e f g h</div><div class="line">i j k l</div><div class="line">m n o p</div><div class="line">q r s t</div><div class="line">u v w x</div><div class="line">y z</div><div class="line">[root@md6 ~]# cat test.txt | xargs -n 3</div><div class="line">a b c</div><div class="line">d e f</div><div class="line">g h i</div><div class="line">j k l</div><div class="line">m n o</div><div class="line">p q r</div><div class="line">s t u</div><div class="line">v w x</div><div class="line">y z</div></pre></td></tr></table></figure>
+<ul>
+<li><p>实例1 直接打印</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">find ./ -name \*.yml | xargs echo</div><div class="line">./logrotate_conf.yml ./filebeat.yml ./group_vars/all.yml ./group_vars/ehr.yml ./group_vars/http_proxy.yml ./group_vars/medweb.yml</div></pre></td></tr></table></figure>
+</li>
+<li><p>实例2 查找文件内容中带hostname的</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -type f -print | xargs grep -n &quot;hostname&quot; (-n输出行号)</div></pre></td></tr></table></figure>
+</li>
+<li><p>实例3 mv 或者 cp 使用-i参数 -p 打印过程(交互确认)</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ls  *.txt | xargs -n1 -i -p cp &#123;&#125; /var/tmp/</div></pre></td></tr></table></figure>
+</li>
+<li><p>实例4 查找当下文件按大小排序</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -maxdepth 1 ! -name &quot;.&quot; -print0 | xargs -0 du -b | sort -nr | head -10 | nl</div></pre></td></tr></table></figure>
+</li>
+<li><p>实例5 结合sed替换</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -name &quot;*.txt&quot; -print0 | xargs -0 sed -i &apos;s/aaa/bbb/g&apos;</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>首先使用方式不一样，exec操作麻烦些 xargs更简单直接方法多样<br>另外从输出结果看得出  exec是遇到一个找到的文件就执行一次命令，xargs是把结果放到一起，执行一次。(这样可以使用在 把多行文件合并成一行的特定场景中)<br>需要强调xargs遇到文件名中有空格的行为是处理不了的。<br>这种情况可以这样</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -name \*.txt -print0 | xargs -0 rm</div></pre></td></tr></table></figure>
+<p>其中find找到每个文件定义以null字符结尾  xargs找文件定义null分割文件 就可以了</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;exec&quot;&gt;&lt;a href=&quot;#exec&quot; class=&quot;headerlink&quot; title=&quot;exec&quot;&gt;&lt;/a&gt;exec&lt;/h2&gt;&lt;p&gt;看起来就是执行某动作的命令&lt;br&gt;格式为 -exec echo {} \;&lt;br&gt;其中 &lt;code&gt;echo&lt;/code&gt; 
+    
+    </summary>
+    
+      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
+    
+    
+      <category term="shell" scheme="http://yoursite.com/tags/shell/"/>
+    
+  </entry>
+  
+</feed>

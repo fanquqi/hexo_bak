@@ -1,0 +1,1149 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="falcon, 监控," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="fix u dream" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="grafana上面不支持open-falcon的大写metric(mymon metric更改小写) (这是openfalcon的bug，falcon-plus中已经修复)  但是我们现在使用的falcon没有升级，而且升级的得计划暂时没有安排。我们只能手动更改metric不用大写尽量用小写。以下记录mymon更改。mymon是使用go语言编写的，用来监控mysql的插件。mymon代码链接由于之">
+<meta name="keywords" content="falcon, 监控">
+<meta property="og:type" content="article">
+<meta property="og:title" content="falcon问题处理">
+<meta property="og:url" content="http://yoursite.com/2017/06/08/falcon问题处理/index.html">
+<meta property="og:site_name" content="fix u dream">
+<meta property="og:description" content="grafana上面不支持open-falcon的大写metric(mymon metric更改小写) (这是openfalcon的bug，falcon-plus中已经修复)  但是我们现在使用的falcon没有升级，而且升级的得计划暂时没有安排。我们只能手动更改metric不用大写尽量用小写。以下记录mymon更改。mymon是使用go语言编写的，用来监控mysql的插件。mymon代码链接由于之">
+<meta property="og:updated_time" content="2017-06-23T05:46:02.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="falcon问题处理">
+<meta name="twitter:description" content="grafana上面不支持open-falcon的大写metric(mymon metric更改小写) (这是openfalcon的bug，falcon-plus中已经修复)  但是我们现在使用的falcon没有升级，而且升级的得计划暂时没有安排。我们只能手动更改metric不用大写尽量用小写。以下记录mymon更改。mymon是使用go语言编写的，用来监控mysql的插件。mymon代码链接由于之">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"hide","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/06/08/falcon问题处理/"/>
+
+
+
+
+
+  <title>falcon问题处理 | fix u dream</title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">fix u dream</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description"></h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/06/08/falcon问题处理/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="樊全清">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/uploads/fanquanqing.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="fix u dream">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">falcon问题处理</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-06-08T16:14:29+08:00">
+                2017-06-08
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/监控/" itemprop="url" rel="index">
+                    <span itemprop="name">监控</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="grafana上面不支持open-falcon的大写metricmymon-metric更改小写"><a href="#grafana上面不支持open-falcon的大写metric-mymon-metric更改小写" class="headerlink" title="grafana上面不支持open-falcon的大写metric(mymon metric更改小写)"></a>grafana上面不支持open-falcon的大写metric(mymon metric更改小写)</h2><blockquote>
+<p>(这是openfalcon的bug，falcon-plus中已经修复)</p>
+</blockquote>
+<p>但是我们现在使用的falcon没有升级，而且升级的得计划暂时没有安排。我们只能手动更改metric不用大写尽量用小写。<br>以下记录mymon更改。<br><strong>mymon</strong>是使用go语言编写的，用来监控mysql的插件。<a href="https://github.com/open-falcon/mymon" target="_blank" rel="external">mymon代码链接</a><br>由于之前的mymon是通过ansible 脚本直接git pull下来的，所以有源码在，可以更改之后再build一下。<br>找到<code>metric.go</code>修改大写的metric为小写。 修改完脚本如下。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div><div class="line">153</div><div class="line">154</div><div class="line">155</div><div class="line">156</div><div class="line">157</div><div class="line">158</div><div class="line">159</div><div class="line">160</div><div class="line">161</div><div class="line">162</div><div class="line">163</div><div class="line">164</div><div class="line">165</div><div class="line">166</div><div class="line">167</div><div class="line">168</div><div class="line">169</div><div class="line">170</div><div class="line">171</div><div class="line">172</div><div class="line">173</div><div class="line">174</div><div class="line">175</div><div class="line">176</div><div class="line">177</div><div class="line">178</div><div class="line">179</div><div class="line">180</div><div class="line">181</div><div class="line">182</div><div class="line">183</div><div class="line">184</div><div class="line">185</div><div class="line">186</div><div class="line">187</div><div class="line">188</div><div class="line">189</div><div class="line">190</div><div class="line">191</div><div class="line">192</div><div class="line">193</div><div class="line">194</div><div class="line">195</div><div class="line">196</div><div class="line">197</div><div class="line">198</div><div class="line">199</div><div class="line">200</div><div class="line">201</div><div class="line">202</div><div class="line">203</div><div class="line">204</div><div class="line">205</div><div class="line">206</div><div class="line">207</div><div class="line">208</div><div class="line">209</div><div class="line">210</div><div class="line">211</div><div class="line">212</div><div class="line">213</div><div class="line">214</div><div class="line">215</div><div class="line">216</div><div class="line">217</div><div class="line">218</div><div class="line">219</div><div class="line">220</div><div class="line">221</div><div class="line">222</div><div class="line">223</div><div class="line">224</div><div class="line">225</div><div class="line">226</div><div class="line">227</div><div class="line">228</div><div class="line">229</div><div class="line">230</div><div class="line">231</div><div class="line">232</div><div class="line">233</div><div class="line">234</div><div class="line">235</div><div class="line">236</div><div class="line">237</div><div class="line">238</div><div class="line">239</div><div class="line">240</div><div class="line">241</div><div class="line">242</div><div class="line">243</div><div class="line">244</div><div class="line">245</div><div class="line">246</div><div class="line">247</div><div class="line">248</div><div class="line">249</div><div class="line">250</div><div class="line">251</div><div class="line">252</div><div class="line">253</div><div class="line">254</div><div class="line">255</div><div class="line">256</div><div class="line">257</div><div class="line">258</div><div class="line">259</div><div class="line">260</div><div class="line">261</div><div class="line">262</div><div class="line">263</div><div class="line">264</div><div class="line">265</div><div class="line">266</div><div class="line">267</div><div class="line">268</div><div class="line">269</div><div class="line">270</div><div class="line">271</div><div class="line">272</div><div class="line">273</div><div class="line">274</div><div class="line">275</div><div class="line">276</div><div class="line">277</div><div class="line">278</div><div class="line">279</div><div class="line">280</div><div class="line">281</div><div class="line">282</div><div class="line">283</div><div class="line">284</div><div class="line">285</div><div class="line">286</div><div class="line">287</div><div class="line">288</div><div class="line">289</div><div class="line">290</div><div class="line">291</div></pre></td><td class="code"><pre><div class="line">package main</div><div class="line"></div><div class="line">import (</div><div class="line">    &quot;fmt&quot;</div><div class="line">    &quot;os&quot;</div><div class="line">    &quot;time&quot;</div><div class="line">    &quot;strings&quot; #添加string</div><div class="line">)</div><div class="line"></div><div class="line">const (</div><div class="line">    TIME_OUT = 30</div><div class="line"></div><div class="line">    ORIGIN   = &quot;GAUGE&quot;</div><div class="line">    DELTA_PS = &quot;COUNTER&quot;</div><div class="line">    DELTA    = &quot;&quot;</div><div class="line">)</div><div class="line"></div><div class="line">// COUNTER: Speed per second</div><div class="line">// GAUGE: Original, DEFAULT</div><div class="line">var DataType = map[string]string&#123;</div><div class="line">    &quot;Innodb_buffer_pool_reads&quot;:         DELTA_PS,</div><div class="line">    &quot;Innodb_buffer_pool_read_requests&quot;: DELTA_PS,</div><div class="line">    &quot;Innodb_compress_time&quot;:             DELTA_PS,</div><div class="line">    &quot;Innodb_data_fsyncs&quot;:               DELTA_PS,</div><div class="line">    &quot;Innodb_data_read&quot;:                 DELTA_PS,</div><div class="line">    &quot;Innodb_data_reads&quot;:                DELTA_PS,</div><div class="line">    &quot;Innodb_data_writes&quot;:               DELTA_PS,</div><div class="line">    &quot;Innodb_data_written&quot;:              DELTA_PS,</div><div class="line">    &quot;Innodb_last_checkpoint_at&quot;:        DELTA_PS,</div><div class="line">    &quot;Innodb_log_flushed_up_to&quot;:         DELTA_PS,</div><div class="line">    &quot;Innodb_log_sequence_number&quot;:       DELTA_PS,</div><div class="line">    &quot;Innodb_mutex_os_waits&quot;:            DELTA_PS,</div><div class="line">    &quot;Innodb_mutex_spin_rounds&quot;:         DELTA_PS,</div><div class="line">    &quot;Innodb_mutex_spin_waits&quot;:          DELTA_PS,</div><div class="line">    &quot;Innodb_pages_flushed_up_to&quot;:       DELTA_PS,</div><div class="line">    &quot;Innodb_rows_deleted&quot;:              DELTA_PS,</div><div class="line">    &quot;Innodb_rows_inserted&quot;:             DELTA_PS,</div><div class="line">    &quot;Innodb_rows_locked&quot;:               DELTA_PS,</div><div class="line">    &quot;Innodb_rows_modified&quot;:             DELTA_PS,</div><div class="line">    &quot;Innodb_rows_read&quot;:                 DELTA_PS,</div><div class="line">    &quot;Innodb_rows_updated&quot;:              DELTA_PS,</div><div class="line">    &quot;Innodb_row_lock_time&quot;:             DELTA_PS,</div><div class="line">    &quot;Innodb_row_lock_waits&quot;:            DELTA_PS,</div><div class="line">    &quot;Innodb_uncompress_time&quot;:           DELTA_PS,</div><div class="line"></div><div class="line">    &quot;Binlog_event_count&quot;: DELTA_PS,</div><div class="line">    &quot;Binlog_number&quot;:      DELTA_PS,</div><div class="line">    &quot;Slave_count&quot;:        DELTA_PS,</div><div class="line"></div><div class="line">    &quot;Com_admin_commands&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_assign_to_keycache&quot;:    DELTA_PS,</div><div class="line">    &quot;Com_alter_db&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_alter_db_upgrade&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_alter_event&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_alter_function&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_alter_procedure&quot;:       DELTA_PS,</div><div class="line">    &quot;Com_alter_server&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_alter_table&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_alter_tablespace&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_analyze&quot;:               DELTA_PS,</div><div class="line">    &quot;Com_begin&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_binlog&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_call_procedure&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_change_db&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_change_master&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_check&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_checksum&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_commit&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_create_db&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_create_event&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_create_function&quot;:       DELTA_PS,</div><div class="line">    &quot;Com_create_index&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_create_procedure&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_create_server&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_create_table&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_create_trigger&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_create_udf&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_create_user&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_create_view&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_dealloc_sql&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_delete&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_delete_multi&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_do&quot;:                    DELTA_PS,</div><div class="line">    &quot;Com_drop_db&quot;:               DELTA_PS,</div><div class="line">    &quot;Com_drop_event&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_drop_function&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_drop_index&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_drop_procedure&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_drop_server&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_drop_table&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_drop_trigger&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_drop_user&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_drop_view&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_empty_query&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_execute_sql&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_flush&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_grant&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_ha_close&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_ha_open&quot;:               DELTA_PS,</div><div class="line">    &quot;Com_ha_read&quot;:               DELTA_PS,</div><div class="line">    &quot;Com_help&quot;:                  DELTA_PS,</div><div class="line">    &quot;Com_insert&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_insert_select&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_install_plugin&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_kill&quot;:                  DELTA_PS,</div><div class="line">    &quot;Com_load&quot;:                  DELTA_PS,</div><div class="line">    &quot;Com_lock_tables&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_optimize&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_preload_keys&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_prepare_sql&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_purge&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_purge_before_date&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_release_savepoint&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_rename_table&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_rename_user&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_repair&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_replace&quot;:               DELTA_PS,</div><div class="line">    &quot;Com_replace_select&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_reset&quot;:                 DELTA_PS,</div><div class="line">    &quot;Com_resignal&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_revoke&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_revoke_all&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_rollback&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_rollback_to_savepoint&quot;: DELTA_PS,</div><div class="line">    &quot;Com_savepoint&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_select&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_set_option&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_signal&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_show_authors&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_show_binlog_events&quot;:    DELTA_PS,</div><div class="line">    &quot;Com_show_binlogs&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_show_charsets&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_show_collations&quot;:       DELTA_PS,</div><div class="line">    &quot;Com_show_contributors&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_create_db&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_show_create_event&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_create_func&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_create_proc&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_create_table&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_create_trigger&quot;:   DELTA_PS,</div><div class="line">    &quot;Com_show_databases&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_show_engine_logs&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_engine_mutex&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_engine_status&quot;:    DELTA_PS,</div><div class="line">    &quot;Com_show_events&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_errors&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_fields&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_function_status&quot;:  DELTA_PS,</div><div class="line">    &quot;Com_show_grants&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_keys&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_show_master_status&quot;:    DELTA_PS,</div><div class="line">    &quot;Com_show_open_tables&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_plugins&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_show_privileges&quot;:       DELTA_PS,</div><div class="line">    &quot;Com_show_procedure_status&quot;: DELTA_PS,</div><div class="line">    &quot;Com_show_processlist&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_profile&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_show_profiles&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_show_relaylog_events&quot;:  DELTA_PS,</div><div class="line">    &quot;Com_show_slave_hosts&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_show_slave_status&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_status&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_storage_engines&quot;:  DELTA_PS,</div><div class="line">    &quot;Com_show_table_status&quot;:     DELTA_PS,</div><div class="line">    &quot;Com_show_tables&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_show_triggers&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_show_variables&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_show_warnings&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_slave_start&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_slave_stop&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_stmt_close&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_stmt_execute&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_stmt_fetch&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_stmt_prepare&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_stmt_reprepare&quot;:        DELTA_PS,</div><div class="line">    &quot;Com_stmt_reset&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_stmt_send_long_data&quot;:   DELTA_PS,</div><div class="line">    &quot;Com_truncate&quot;:              DELTA_PS,</div><div class="line">    &quot;Com_uninstall_plugin&quot;:      DELTA_PS,</div><div class="line">    &quot;Com_unlock_tables&quot;:         DELTA_PS,</div><div class="line">    &quot;Com_update&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_update_multi&quot;:          DELTA_PS,</div><div class="line">    &quot;Com_xa_commit&quot;:             DELTA_PS,</div><div class="line">    &quot;Com_xa_end&quot;:                DELTA_PS,</div><div class="line">    &quot;Com_xa_prepare&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_xa_recover&quot;:            DELTA_PS,</div><div class="line">    &quot;Com_xa_rollback&quot;:           DELTA_PS,</div><div class="line">    &quot;Com_xa_start&quot;:              DELTA_PS,</div><div class="line"></div><div class="line">    &quot;Aborted_clients&quot;:            DELTA_PS,</div><div class="line">    &quot;Aborted_connects&quot;:           DELTA_PS,</div><div class="line">    &quot;Access_denied_errors&quot;:       DELTA_PS,</div><div class="line">    &quot;Binlog_bytes_written&quot;:       DELTA_PS,</div><div class="line">    &quot;Binlog_cache_disk_use&quot;:      DELTA_PS,</div><div class="line">    &quot;Binlog_cache_use&quot;:           DELTA_PS,</div><div class="line">    &quot;Binlog_stmt_cache_disk_use&quot;: DELTA_PS,</div><div class="line">    &quot;Binlog_stmt_cache_use&quot;:      DELTA_PS,</div><div class="line">    &quot;Bytes_received&quot;:             DELTA_PS,</div><div class="line">    &quot;Bytes_sent&quot;:                 DELTA_PS,</div><div class="line">    &quot;Connections&quot;:                DELTA_PS,</div><div class="line">    &quot;Created_tmp_disk_tables&quot;:    DELTA_PS,</div><div class="line">    &quot;Created_tmp_files&quot;:          DELTA_PS,</div><div class="line">    &quot;Created_tmp_tables&quot;:         DELTA_PS,</div><div class="line">    &quot;Handler_delete&quot;:             DELTA_PS,</div><div class="line">    &quot;Handler_read_first&quot;:         DELTA_PS,</div><div class="line">    &quot;Handler_read_key&quot;:           DELTA_PS,</div><div class="line">    &quot;Handler_read_last&quot;:          DELTA_PS,</div><div class="line">    &quot;Handler_read_next&quot;:          DELTA_PS,</div><div class="line">    &quot;Handler_read_prev&quot;:          DELTA_PS,</div><div class="line">    &quot;Handler_read_rnd&quot;:           DELTA_PS,</div><div class="line">    &quot;Handler_read_rnd_next&quot;:      DELTA_PS,</div><div class="line">    &quot;Handler_update&quot;:             DELTA_PS,</div><div class="line">    &quot;Handler_write&quot;:              DELTA_PS,</div><div class="line">    &quot;Opened_files&quot;:               DELTA_PS,</div><div class="line">    &quot;Opened_tables&quot;:              DELTA_PS,</div><div class="line">    &quot;Opened_table_definitions&quot;:   DELTA_PS,</div><div class="line">    &quot;Qcache_hits&quot;:                DELTA_PS,</div><div class="line">    &quot;Qcache_inserts&quot;:             DELTA_PS,</div><div class="line">    &quot;Qcache_lowmem_prunes&quot;:       DELTA_PS,</div><div class="line">    &quot;Qcache_not_cached&quot;:          DELTA_PS,</div><div class="line">    &quot;Queries&quot;:                    DELTA_PS,</div><div class="line">    &quot;Questions&quot;:                  DELTA_PS,</div><div class="line">    &quot;Select_full_join&quot;:           DELTA_PS,</div><div class="line">    &quot;Select_full_range_join&quot;:     DELTA_PS,</div><div class="line">    &quot;Select_range_check&quot;:         DELTA_PS,</div><div class="line">    &quot;Select_scan&quot;:                DELTA_PS,</div><div class="line">    &quot;Slow_queries&quot;:               DELTA_PS,</div><div class="line">    &quot;Sort_merge_passes&quot;:          DELTA_PS,</div><div class="line">    &quot;Sort_range&quot;:                 DELTA_PS,</div><div class="line">    &quot;Sort_rows&quot;:                  DELTA_PS,</div><div class="line">    &quot;Sort_scan&quot;:                  DELTA_PS,</div><div class="line">    &quot;Table_locks_immediate&quot;:      DELTA_PS,</div><div class="line">    &quot;Table_locks_waited&quot;:         DELTA_PS,</div><div class="line">    &quot;Threads_created&quot;:            DELTA_PS,</div><div class="line">&#125;</div><div class="line"></div><div class="line">type MysqlIns struct &#123;</div><div class="line">    Host string</div><div class="line">    Port int</div><div class="line">    Tag  string</div><div class="line">&#125;</div><div class="line"></div><div class="line">func dataType(key_ string) string &#123;</div><div class="line">    if v, ok := DataType[key_]; ok &#123;</div><div class="line">        return v</div><div class="line">    &#125;</div><div class="line">    return ORIGIN</div><div class="line">&#125;</div><div class="line"></div><div class="line">type MetaData struct &#123;</div><div class="line">    Metric      string      `json:&quot;metric&quot;`      //key</div><div class="line">    Endpoint    string      `json:&quot;endpoint&quot;`    //hostname</div><div class="line">    Value       interface&#123;&#125; `json:&quot;value&quot;`       // number or string</div><div class="line">    CounterType string      `json:&quot;counterType&quot;` // GAUGE  原值   COUNTER 差值(ps)</div><div class="line">    Tags        string      `json:&quot;tags&quot;`        // port=3306,k=v</div><div class="line">    Timestamp   int64       `json:&quot;timestamp&quot;`</div><div class="line">    Step        int64       `json:&quot;step&quot;`</div><div class="line">&#125;</div><div class="line"></div><div class="line">func (m *MetaData) String() string &#123;</div><div class="line">    s := fmt.Sprintf(&quot;MetaData Metric:%s Endpoint:%s Value:%v CounterType:%s Tags:%s Timestamp:%d Step:%d&quot;,</div><div class="line">        m.Metric, m.Endpoint, m.Value, m.CounterType, m.Tags, m.Timestamp, m.Step)</div><div class="line">    return s</div><div class="line">&#125;</div><div class="line"></div><div class="line">func NewMetric(name string) *MetaData &#123;</div><div class="line">    return &amp;MetaData&#123;</div><div class="line">        Metric:      strings.ToLower(name), #name 改为strings.ToLower(name)</div><div class="line">        Endpoint:    hostname(),</div><div class="line">        CounterType: dataType(name),</div><div class="line">        Tags:        fmt.Sprintf(&quot;port=%d&quot;, cfg.Port),</div><div class="line">        Timestamp:   time.Now().Unix(),</div><div class="line">        Step:        60,</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">func hostname() string &#123;</div><div class="line">    host := cfg.Endpoint</div><div class="line">    if host != &quot;&quot; &#123;</div><div class="line">        return host</div><div class="line">    &#125;</div><div class="line">    host, err := os.Hostname()</div><div class="line">    if err != nil &#123;</div><div class="line">        host = cfg.Host</div><div class="line">    &#125;</div><div class="line">    return host</div><div class="line">&#125;</div><div class="line"></div><div class="line">func (m *MetaData) SetValue(v interface&#123;&#125;) &#123;</div><div class="line">    m.Value = v</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>之后在mymon目录 执行<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">go get ./...</div><div class="line">go build -o mymon</div></pre></td></tr></table></figure></p>
+<p>即可 </p>
+<p>之后可以去数据库手动删掉openfalcon 过期的metric(但是新的metric并没有更新，反而旧metric没了数据，可以试着修改endpoint，然后去数据区删除旧的endpoint)</p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/falcon-监控/" rel="tag"># falcon, 监控</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/06/08/sublime使用/" rel="next" title="sublime使用">
+                <i class="fa fa-chevron-left"></i> sublime使用
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/06/09/运维工具之sar命令/" rel="prev" title="运维工具之sar命令">
+                运维工具之sar命令 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="uyan_frame"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/fanquanqing.jpg"
+               alt="樊全清" />
+          <p class="site-author-name" itemprop="name">樊全清</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">13</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/fanquqi" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="/uploads/wechat.png" target="_blank" title="Wechat">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Wechat
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#grafana上面不支持open-falcon的大写metricmymon-metric更改小写"><span class="nav-text">grafana上面不支持open-falcon的大写metric(mymon metric更改小写)</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">樊全清</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    
+
+    
+      <!-- UY BEGIN -->
+      <script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2135585"></script>
+      <!-- UY END -->
+    
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (search_path.endsWith("json")) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

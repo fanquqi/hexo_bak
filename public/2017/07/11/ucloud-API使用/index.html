@@ -1,0 +1,1185 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="python," />
+
+
+
+
+
+  <link rel="alternate" href="/atom.xml" title="fix u dream" type="application/atom+xml" />
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。  ucloud提供了官方的`apk`[链接](https://github.com/ucloud-web/p">
+<meta name="keywords" content="python">
+<meta property="og:type" content="article">
+<meta property="og:title" content="通过ucloud_API查看资源价格">
+<meta property="og:url" content="http://yoursite.com/2017/07/11/ucloud-API使用/index.html">
+<meta property="og:site_name" content="fix u dream">
+<meta property="og:description" content="我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。  ucloud提供了官方的`apk`[链接](https://github.com/ucloud-web/p">
+<meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/grafana_influxdb.png">
+<meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_eip.png">
+<meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_price.png">
+<meta property="og:updated_time" content="2017-07-12T02:51:11.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="通过ucloud_API查看资源价格">
+<meta name="twitter:description" content="我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。  ucloud提供了官方的`apk`[链接](https://github.com/ucloud-web/p">
+<meta name="twitter:image" content="http://or2jd66dq.bkt.clouddn.com/grafana_influxdb.png">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"hide","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/07/11/ucloud-API使用/"/>
+
+
+
+
+
+  <title>通过ucloud_API查看资源价格 | fix u dream</title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">fix u dream</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <h1 class="site-subtitle" itemprop="description"></h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br />
+            
+            搜索
+          </a>
+        </li>
+      
+    </ul>
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/07/11/ucloud-API使用/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="樊全清">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/uploads/fanquanqing.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="fix u dream">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">通过ucloud_API查看资源价格</h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-07-11T17:34:50+08:00">
+                2017-07-11
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+            <span class="post-category" >
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/python/" itemprop="url" rel="index">
+                    <span itemprop="name">python</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。</p>
+</blockquote>
+<pre><code>ucloud提供了官方的`apk`[链接](https://github.com/ucloud-web/python-sdk-v2.git)
+</code></pre><p>有的同学直接把它写成了python命令 <a href="https://pypi.python.org/pypi/ucli/" target="_blank" rel="external">链接</a></p>
+<p>本来只是想做一个统计价格的工具，写着写着，就像反正收集实例信息还不如都挨个统计一下展示出来，<br>因为：</p>
+<ol>
+<li>ucloud信息展示的并不清晰  </li>
+<li>如果看到价格有异常肯定第一时间想知道到底哪个贵些，贵在哪里，更方便直观一些</li>
+</ol>
+<p>我在下边主要展示一下自己手写的几个脚本通过API获取实例信息，再通过实例信息获取实例价格，最后统一发送到influxDB中去到grafana上呈现。定时每天跑一次。代码水平有限，大家请不要嘲笑。</p>
+<p>先来看下他的apk和配置文件<br>他的public_key 和 private_key 涉及到自己独特的加秘方式。可以去ucloud官网看看 </p>
+<h2 id="apkpy"><a href="#apk-py" class="headerlink" title="apk.py"></a><code>apk.py</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div></pre></td><td class="code"><pre><div class="line"># -*- coding: utf-8 -*-</div><div class="line">import hashlib, json, httplib</div><div class="line">import urlparse</div><div class="line">import urllib</div><div class="line">import sys</div><div class="line">from config import *</div><div class="line"></div><div class="line"></div><div class="line">class UCLOUDException(Exception):</div><div class="line">    def __str__(self):</div><div class="line">        return &quot;Error&quot;</div><div class="line"></div><div class="line"></div><div class="line">def _verfy_ac(private_key, params):</div><div class="line">    items = params.items()</div><div class="line">    items.sort()</div><div class="line"></div><div class="line">    params_data = &quot;&quot;</div><div class="line">    for key, value in items:</div><div class="line">        params_data = params_data + str(key) + str(value)</div><div class="line"></div><div class="line">    params_data = params_data+private_key</div><div class="line"></div><div class="line">    &apos;&apos;&apos;use sha1 to encode keys&apos;&apos;&apos;</div><div class="line">    hash_new = hashlib.sha1()</div><div class="line">    hash_new.update(params_data)</div><div class="line">    hash_value = hash_new.hexdigest()</div><div class="line">    return hash_value</div><div class="line"></div><div class="line"></div><div class="line">class UConnection(object):</div><div class="line">    def __init__(self, base_url):</div><div class="line">        self.base_url = base_url</div><div class="line">        o = urlparse.urlsplit(base_url)</div><div class="line">        if o.scheme == &apos;https&apos;:</div><div class="line">            self.conn = httplib.HTTPSConnection(o.netloc)</div><div class="line">        else:</div><div class="line">            self.conn = httplib.HTTPConnection(o.netloc)</div><div class="line"></div><div class="line">    def __del__(self):</div><div class="line">        self.conn.close()</div><div class="line"></div><div class="line">    def get(self, resouse, params):</div><div class="line">        resouse += &quot;?&quot; + urllib.urlencode(params)</div><div class="line">        print(&quot;%s%s&quot; % (self.base_url, resouse))</div><div class="line">        self.conn.request(&quot;GET&quot;, resouse)</div><div class="line">        response = json.loads(self.conn.getresponse().read())</div><div class="line">        return response</div><div class="line"></div><div class="line"></div><div class="line">class UcloudApiClient(object):</div><div class="line">    # 添加 设置 数据中心和  zone 参数</div><div class="line">    def __init__(self, base_url, public_key, private_key):</div><div class="line">        self.g_params = &#123;&#125;</div><div class="line">        self.g_params[&apos;PublicKey&apos;] = public_key</div><div class="line">        self.private_key = private_keyurl</div><div class="line">        self.conn = UConnection(base_url)</div><div class="line"></div><div class="line">    def get(self, uri, params):</div><div class="line">        # print params</div><div class="line">        _params = dict(self.g_params, **params)</div><div class="line"></div><div class="line">        if project_id :</div><div class="line">            _params[&quot;ProjectId&quot;] = project_id</div><div class="line"></div><div class="line">        _params[&quot;Signature&quot;] = _verfy_ac(self.private_key, _params)</div><div class="line">        return self.conn.get(uri, _params)</div></pre></td></tr></table></figure>
+<h2 id="confpy"><a href="#conf-py" class="headerlink" title="conf.py"></a><code>conf.py</code></h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">#-*- encoding: utf-8 -*-</div><div class="line">#配置公私钥&quot;&quot;&quot;</div><div class="line">public_key  = &quot;at************************&quot;</div><div class="line">private_key = &quot;e7***************&quot;</div><div class="line">#project_id = &quot;******&quot; # 项目ID 请在Dashbord 上获取</div><div class="line"></div><div class="line">base_url    = &quot;https://api.ucloud.cn&quot;</div></pre></td></tr></table></figure>
+<h2 id="collect_uhost_pricepy"><a href="#collect-uhost-price-py" class="headerlink" title="collect_uhost_price.py"></a>collect_uhost_price.py</h2><blockquote>
+<p>通过查看机器示例，按付费方式查看机器价格。<br>具体查看<a href="https://docs.ucloud.cn/api/uhost-api/index" target="_blank" rel="external">ucloud uhost API</a><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/python</div><div class="line">#-*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author:fanquanqing</div><div class="line"># collect ucloud uhost price</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">from collections import Iterable</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"></div><div class="line">#host_list = []</div><div class="line"></div><div class="line"># 收集uhost信息</div><div class="line">def collect_uhost_info(Regions_list,ProjectId):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    包含 hostname, ip, region, cpu, mem, diskspace, chargetype, count, ImageId, osname.</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    host_info_list = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">        &quot;Action&quot;:&quot;DescribeUHostInstance&quot;,</div><div class="line">        &quot;Region&quot;:Region,</div><div class="line">        &quot;ProjectId&quot;:ProjectId,</div><div class="line">        &quot;Limit&quot;:&quot;1000&quot;</div><div class="line">        &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        length = response[&apos;TotalCount&apos;]</div><div class="line">        for i in range(length):</div><div class="line">            host_info = &#123;&#125;</div><div class="line">            #ImageId = response[&quot;UHostSet&quot;][i][&quot;BasicImageId&quot;].encode(&quot;utf-8&quot;)</div><div class="line">            ChargeType = response[&quot;UHostSet&quot;][i][&quot;ChargeType&quot;].encode(&quot;utf-8&quot;)</div><div class="line">            #host_info[&quot;Action&quot;] = &quot;GetUHostInstancePrice&quot;</div><div class="line">            host_info[&quot;Region&quot;] = Region</div><div class="line">            host_info[&quot;ImageId&quot;] = &quot;uimage-kg0w4u&quot;</div><div class="line">            host_info[&quot;Hostname&quot;] = response[&quot;UHostSet&quot;][i][&quot;Name&quot;]</div><div class="line">            host_info[&quot;CPU&quot;] = response[&quot;UHostSet&quot;][i][&quot;CPU&quot;]</div><div class="line">            host_info[&quot;Memory&quot;] = response[&quot;UHostSet&quot;][i][&quot;Memory&quot;]</div><div class="line"></div><div class="line">            if len(response[&quot;UHostSet&quot;][i][&quot;DiskSet&quot;]) &gt; 1:</div><div class="line">                host_info[&quot;DiskSpace&quot;] = response[&quot;UHostSet&quot;][i][&quot;DiskSet&quot;][1][&quot;Size&quot;]</div><div class="line">            else:</div><div class="line">                host_info[&quot;DiskSpace&quot;]=0</div><div class="line">            host_info[&quot;Count&quot;] = 1</div><div class="line">            host_info[&quot;ChargeType&quot;] = ChargeType</div><div class="line">            host_info[&quot;OsName&quot;] = response[&quot;UHostSet&quot;][i][&quot;OsName&quot;].split()[0]</div><div class="line">            host_info[&quot;loaclIP&quot;] = response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;][0][&quot;IP&quot;]</div><div class="line">            if len(response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;])&gt;1:</div><div class="line">                host_info[&quot;EIP&quot;]=response[&quot;UHostSet&quot;][i][&quot;IPSet&quot;][1][&quot;IP&quot;]</div><div class="line">            else:</div><div class="line">                host_info[&quot;EIP&quot;]=&quot;none&quot;</div><div class="line"></div><div class="line">            host_info_list.append(host_info)</div><div class="line">    #print host_info_list</div><div class="line">    return host_info_list</div><div class="line"></div><div class="line"></div><div class="line">#通过机器配置得到某一台机器价格</div><div class="line">def get_uhost_price(host_instance_info):</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters= host_instance_info</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">#    print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    price = float(response[&quot;PriceSet&quot;][0].values()[0])</div><div class="line">    return price</div><div class="line"></div><div class="line">#通过机器配置信息得到所有机器价格</div><div class="line">def get_all_uhost_price(host_info_list):</div><div class="line"></div><div class="line">    for host_info in host_info_list:</div><div class="line">        host_params=&#123;&#125;</div><div class="line">        host_params[&quot;Action&quot;]=&quot;GetUHostInstancePrice&quot;</div><div class="line">        host_params[&quot;ImageId&quot;]=host_info[&quot;ImageId&quot;]</div><div class="line">        host_params[&quot;CPU&quot;]=host_info[&quot;CPU&quot;]</div><div class="line">        host_params[&quot;Memory&quot;]=host_info[&quot;Memory&quot;]</div><div class="line">        host_params[&quot;Count&quot;]=host_info[&quot;Count&quot;]</div><div class="line">        host_params[&quot;DiskSpace&quot;]=host_info[&quot;DiskSpace&quot;]</div><div class="line">        host_params[&quot;Region&quot;]=&quot;cn-bj2&quot;</div><div class="line">        host_params[&quot;ChargeType&quot;]=host_info[&quot;ChargeType&quot;]</div><div class="line">        if host_params[&quot;ChargeType&quot;]==&quot;Year&quot;:</div><div class="line">            price = get_uhost_price(host_params)</div><div class="line">        elif host_params[&quot;ChargeType&quot;]==&quot;Month&quot;:</div><div class="line">            price = get_uhost_price(host_params)*12</div><div class="line">        else:</div><div class="line">            price=0</div><div class="line">            print &quot;有临时机器请排查。&quot;</div><div class="line">        host_info[&quot;Price&quot;]=price</div><div class="line"></div><div class="line">    return host_info_list</div><div class="line"></div><div class="line">def collect_uhost_price(setting_info):</div><div class="line"></div><div class="line">    host_info_total = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            host_info_list = collect_uhost_info(Regions_list,ProjectId)</div><div class="line">            project_host_list = get_all_uhost_price(host_info_list)</div><div class="line">            host_info_total.extend(project_host_list)</div><div class="line">    return host_info_total</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    host_info_list = collect_uhost_info([&apos;cn-bj2&apos;,&apos;hk&apos;],&quot;org-oddm1w&quot;)</div><div class="line">    host_price_list = get_all_uhost_price(host_info_list)</div><div class="line">    #print host_price_list</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_eip_pricepy"><a href="#collect-eip-price-py" class="headerlink" title="collect_eip_price.py"></a>collect_eip_price.py</h2><blockquote>
+<p>收集弹性IP信息<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"># author:fanquanqing</div><div class="line"># collect ucloud eip price</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"># 得到所有的EIP实例信息</div><div class="line">def get_eip_instance(Regions_list,ProjectId):</div><div class="line">    eip_all = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:Region, &quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        for eip in response[&apos;EIPSet&apos;]:</div><div class="line">            eip_instance = &#123;&#125;</div><div class="line">            # 地域</div><div class="line">            eip_instance[&apos;Region&apos;]=Region</div><div class="line">            # IP</div><div class="line">            eip_instance[&apos;IP&apos;]=eip[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line"></div><div class="line">            # 运营商线路</div><div class="line">            eip_instance[&apos;OperatorName&apos;]=eip[&apos;EIPAddr&apos;][0][&apos;OperatorName&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            # 带宽</div><div class="line">            eip_instance[&apos;Bandwidth&apos;]=eip[&apos;Bandwidth&apos;]</div><div class="line">            # 付费周期</div><div class="line">            eip_instance[&apos;ChargeType&apos;]=eip[&apos;ChargeType&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            # 付费方式(是否绑定共享带宽)</div><div class="line">            eip_instance[&apos;PayMode&apos;]=eip[&apos;PayMode&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            eip_all.append(eip_instance)</div><div class="line"></div><div class="line">    return eip_all</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line"></div><div class="line"># 查看单个EIP实例价格</div><div class="line">def get_eip_price(eip):</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=eip</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print response</div><div class="line">    price = response[&apos;PriceSet&apos;][0][&apos;Price&apos;]</div><div class="line">    return price</div><div class="line"></div><div class="line"></div><div class="line"># 获取所有EIP价格</div><div class="line">def get_all_eip_price(eip_all):</div><div class="line"></div><div class="line">    for eip_info in eip_all:</div><div class="line">        eip_params=&#123;&#125;</div><div class="line">        eip_params[&apos;Action&apos;]=&quot;GetEIPPrice&quot;</div><div class="line">        eip_params[&apos;Region&apos;]=eip_info[&apos;Region&apos;]</div><div class="line">        eip_params[&apos;OperatorName&apos;]=eip_info[&apos;OperatorName&apos;]</div><div class="line">        eip_params[&apos;Bandwidth&apos;]=eip_info[&apos;Bandwidth&apos;]</div><div class="line">        eip_params[&apos;ChargeType&apos;]=eip_info[&apos;ChargeType&apos;]</div><div class="line">        eip_params[&apos;PayMode&apos;]=eip_info[&apos;PayMode&apos;]</div><div class="line">        if eip_params[&apos;ChargeType&apos;]==&quot;Year&quot;:</div><div class="line">            price = get_eip_price(eip_params)</div><div class="line">        elif eip_params[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = get_eip_price(eip_params)*12</div><div class="line">        else:</div><div class="line">            price=0</div><div class="line">            print &quot;有临时EIP请排查&quot;</div><div class="line">        eip_info[&quot;Price&quot;]=price</div><div class="line">    return eip_all</div><div class="line"></div><div class="line"></div><div class="line">def collect_eip_price(setting_info):</div><div class="line">    eip_info_total = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            eip_all=get_eip_instance(Regions_list,ProjectId)</div><div class="line">            price_all=get_all_eip_price(eip_all)</div><div class="line">            eip_info_total.extend(price_all)</div><div class="line">    #print eip_info_total</div><div class="line">    return eip_info_total</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_eip_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_udisk_pricepy"><a href="#collect-udisk-price-py" class="headerlink" title="collect_udisk_price.py"></a>collect_udisk_price.py</h2><blockquote>
+<p>收集云硬盘信息，这个只是取到实例自己手动算的价格<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author: fanquanqing</div><div class="line"># 收集ucloud云硬盘信息 及价格</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line"># 获取udisk 信息</div><div class="line">def get_udisk_info(Regions_list,ProjectId):</div><div class="line">    udisk_list = []</div><div class="line">    for Region in Regions_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeUDisk&quot;, &quot;Region&quot;:Region, &quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        for udisk in response[&apos;DataSet&apos;]:</div><div class="line">            udisk_dic = &#123;&#125;</div><div class="line">            udisk_dic[&apos;Region&apos;] = Region</div><div class="line">            #udisk_dic[&apos;Action&apos;] = &quot;DescribeUDiskPrice&quot;</div><div class="line">            udisk_dic[&apos;Size&apos;] = udisk[&apos;Size&apos;]</div><div class="line">            udisk_dic[&apos;ChargeType&apos;] = udisk[&apos;ChargeType&apos;].encode(&apos;utf-8&apos;)</div><div class="line">            udisk_dic[&apos;UHostName&apos;] = udisk[&apos;UHostName&apos;]</div><div class="line">            udisk_dic[&apos;Quantity&apos;] = 1</div><div class="line">            udisk_dic[&apos;Zone&apos;] = &quot;cn-bj2-02&quot;</div><div class="line">            udisk_list.append(udisk_dic)</div><div class="line">    return udisk_list</div><div class="line"></div><div class="line"># 通过udisk信息获取价格</div><div class="line">def get_udisk_price(udisk_list):</div><div class="line">    for udisk in udisk_list:</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        udisk_params=&#123;&#125;</div><div class="line">        udisk_params[&apos;Action&apos;]=&quot;DescribeUDiskPrice&quot;</div><div class="line">        udisk_params[&apos;Region&apos;]=udisk[&apos;Region&apos;]</div><div class="line">        udisk_params[&apos;Size&apos;]=udisk[&apos;Size&apos;]</div><div class="line">        udisk_params[&apos;ChargeType&apos;]=udisk[&apos;ChargeType&apos;]</div><div class="line">        udisk_params[&apos;Quantity&apos;]=udisk[&apos;Quantity&apos;]</div><div class="line">        udisk_params[&apos;Zone&apos;]=udisk[&apos;Zone&apos;]</div><div class="line">        Parameters = udisk_params</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        if udisk_params[&apos;ChargeType&apos;]==&quot;Year&quot;:</div><div class="line">            price = response[&apos;DataSet&apos;][0][&apos;Price&apos;]/100</div><div class="line">        elif udisk_params[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = response[&apos;DataSet&apos;][0][&apos;Price&apos;]/10</div><div class="line">        else:</div><div class="line">            print &quot;有付费方式异常的云硬盘，请排查。&quot;</div><div class="line">        udisk[&quot;Price&quot;]=price</div><div class="line">    return udisk_list</div><div class="line"></div><div class="line"># 通过付费周期获取udisk价格</div><div class="line">def collect_udisk_price(setting_info):</div><div class="line">    udisk_price_info = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            udisk_list = get_udisk_info(Regions_list,ProjectId)</div><div class="line">            udisk_price_info.extend(get_udisk_price(udisk_list))</div><div class="line">    return udisk_price_info</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_udisk_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="collect_sharebandwidth_pricepy"><a href="#collect-sharebandwidth-price-py" class="headerlink" title="collect_sharebandwidth_price.py"></a>collect_sharebandwidth_price.py</h2><blockquote>
+<p>收集共享带宽信息,因为没有计算价格的API这个价格也是手动算的。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line">#author fanquanqing</div><div class="line">#收集共享带宽信息获取每年消费情况</div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line"></div><div class="line">def get_bandwidth_info(Regions_list,ProjectId):</div><div class="line">    bandwidth = []</div><div class="line">    for Region in Regions_list:</div><div class="line"></div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;,&quot;Region&quot;:Region,&quot;ProjectId&quot;:ProjectId&#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">        #print response</div><div class="line">        for bw in response[&apos;DataSet&apos;]:</div><div class="line">            bw_instance = &#123;&#125;</div><div class="line">            bw_instance[&apos;ShareBandwidth&apos;] =  bw[&apos;ShareBandwidth&apos;]</div><div class="line">            bw_instance[&apos;ChargeType&apos;] = bw[&apos;ChargeType&apos;]</div><div class="line">            bw_instance[&apos;Name&apos;]=bw[&apos;Name&apos;]</div><div class="line">            bandwidth.append(bw_instance)</div><div class="line">    return bandwidth</div><div class="line">#   print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line"></div><div class="line">def get_price(bandwidth):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    价格计算说明:ucloud没有提供API查询共享带宽价格，所有的共享带宽价格都是90/M/月 月付*12,年付*10</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    price_list = []</div><div class="line">    for bw in bandwidth:</div><div class="line">        if bw[&apos;ChargeType&apos;]==&quot;Month&quot;:</div><div class="line">            price = bw[&apos;ShareBandwidth&apos;]*90*12</div><div class="line">            bw[&quot;Price&quot;]=price</div><div class="line">        else:</div><div class="line">            price = bw[&apos;ShareBandwidrh&apos;]</div><div class="line">            bw[&quot;Price&quot;]=price</div><div class="line">    return bandwidth</div><div class="line"></div><div class="line">def collect_sharebandwidth_price(setting_info):</div><div class="line">    bw_price_info = []</div><div class="line">    for Projectname in setting_info:</div><div class="line">        for ProjectId in setting_info[Projectname]:</div><div class="line">            Regions_list = setting_info[Projectname][ProjectId]</div><div class="line">            bw_info = get_bandwidth_info(Regions_list,ProjectId)</div><div class="line">            bw_price_info.extend(get_price(bw_info))</div><div class="line">    #print bw_price_info</div><div class="line">    return bw_price_info</div><div class="line"></div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    collect_sharebandwidth_price(&#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;)</div></pre></td></tr></table></figure>
+<h2 id="get_all_pricepy"><a href="#get-all-price-py" class="headerlink" title="get_all_price.py"></a>get_all_price.py</h2><blockquote>
+<p>给各实例价格求和，发送到influxdb。可以每天跑一下cron更新下内容。<strong>里面发送的influxDB是事先封装好的包直接导入的，并不是官方包</strong><br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding:utf-8 -*-</div><div class="line"></div><div class="line"># author: fanquanqing</div><div class="line">#import datatime</div><div class="line">from collect_eip_price import collect_eip_price</div><div class="line">from collect_uhost_price import collect_uhost_price</div><div class="line">from collect_sharebandwidth_price import collect_sharebandwidth_price</div><div class="line">from collect_udisk_price import collect_udisk_price</div><div class="line">from op_tools.api_influxdb import write_data_to_influxdb</div><div class="line"></div><div class="line">def get_price(setting_info):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    各个实例price求和,并把实例信息发送到influxdb</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_price=0</div><div class="line">    uhost_price=0</div><div class="line">    sharebw_price=0</div><div class="line">    udisk_price=0</div><div class="line">    eip_price_info_list = collect_eip_price(setting_info)</div><div class="line">    for eip_info in eip_price_info_list:</div><div class="line">        eip_headers = eip_info.keys()</div><div class="line">        eip_rows = []</div><div class="line">        eip_rows.append(eip_info.values())</div><div class="line">        #print eip_headers, eip_rows</div><div class="line">        # 发送EIP数据到influxdb</div><div class="line">        write_data_to_influxdb(&apos;EIP_info_daliy&apos;, eip_headers, eip_rows, [&apos;IP&apos;, &apos;OperatorName&apos;, &apos;ChargeType&apos;])</div><div class="line">        eip_price += round(eip_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    uhost_price_info_list = collect_uhost_price(setting_info)</div><div class="line">    for uhost_info in uhost_price_info_list:</div><div class="line">        uhost_headers=uhost_info.keys()</div><div class="line">        uhost_rows=[]</div><div class="line">        uhost_rows.append(uhost_info.values())</div><div class="line">        #print uhost_headers, uhost_rows</div><div class="line">        # 发送云主机信息到influxdb</div><div class="line">        write_data_to_influxdb(&apos;Uhost_info_daliy&apos;, uhost_headers, uhost_rows, [&apos;Hostname&apos;,&apos;ChargeType&apos;])</div><div class="line">        uhost_price += round(uhost_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    sharebandwidth_info_list = collect_sharebandwidth_price(setting_info)</div><div class="line">    for sharebandwidth_info in sharebandwidth_info_list:</div><div class="line">        sharebw_headers=sharebandwidth_info.keys()</div><div class="line">        sharebw_rows=[]</div><div class="line">        sharebw_rows.append(sharebandwidth_info.values())</div><div class="line">        #print sharebw_headers, sharebw_rows</div><div class="line">        # 发送共享带宽信息到influxdb</div><div class="line">        write_data_to_influxdb(&apos;ShareBandwidth_info_daliy&apos;,sharebw_headers,sharebw_rows,[])</div><div class="line">        sharebw_price += round(sharebandwidth_info[&apos;Price&apos;])</div><div class="line"></div><div class="line">    udisk_info_list=collect_udisk_price(setting_info)</div><div class="line">    for udisk_info in udisk_info_list:</div><div class="line">        udisk_headers=udisk_info.keys()</div><div class="line">        udisk_rows=[]</div><div class="line">        udisk_rows.append(udisk_info.values())</div><div class="line">        #print udisk_headers, udisk_rows</div><div class="line">        write_data_to_influxdb(&apos;Udisk_info_daliy&apos;, udisk_headers,udisk_rows,[&apos;UHostName&apos;,&apos;Region&apos;])</div><div class="line">        udisk_price += round(udisk_info[&apos;Price&apos;])</div><div class="line">    # 托管机房价格</div><div class="line">    physical_price = get_physical_host_price()</div><div class="line">    total_price=eip_price+uhost_price+sharebw_price+udisk_price+physical_price</div><div class="line">    # 价格列表</div><div class="line">    price_list=[eip_price,uhost_price,sharebw_price,udisk_price,total_price]</div><div class="line">    price_headers=[&apos;eip_price&apos;,&apos;uhost_price&apos;,&apos;sharebw_price&apos;,&apos;udisk_price&apos;,&apos;total_price&apos;]</div><div class="line">    price_rows=[]</div><div class="line">    price_rows.append(price_list)</div><div class="line">    write_data_to_influxdb(&apos;Ucloud_price_total_daliy&apos;,price_headers,price_rows,[])</div><div class="line"></div><div class="line">    #print uhost_price</div><div class="line">    return uhost_price</div><div class="line"></div><div class="line"># 托管机器价格(两个机柜一个10M外网)</div><div class="line">def get_physical_host_price():</div><div class="line">    host_price = 9000*2*12</div><div class="line">    tg_cloud_switch_port_price = (288*2+217)*12</div><div class="line">    tg_bandwidth_price = 10*90*12</div><div class="line">    physical_price = host_price+tg_bandwidth_price+tg_cloud_switch_port_price</div><div class="line">    return physical_price</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    # 可用区列表</div><div class="line">    #Regions_list = [&apos;cn-bj2&apos;,&apos;hk&apos;]</div><div class="line">    # 项目ID列表</div><div class="line">    #Project_Id_list = [&apos;org-shbbct&apos;,&apos;org-oddm1w&apos;]</div><div class="line">    # 项目ID对应关系</div><div class="line">    setting_info = &#123;&quot;chunyu&quot;:&#123;&quot;org-oddm1w&quot;:[&apos;cn-bj2&apos;,&apos;hk&apos;]&#125;, &quot;uhs&quot;:&#123;&quot;org-shbbct&quot;:[&quot;cn-bj2&quot;]&#125;&#125;</div><div class="line">    get_price(setting_info)</div></pre></td></tr></table></figure></p>
+</blockquote>
+<h2 id="grafana效果展示"><a href="#grafana效果展示" class="headerlink" title="grafana效果展示"></a>grafana效果展示</h2><blockquote>
+<p>grafana跟influxDB配合的非常好，设置也非常简单。下面我在下面放几张效果图。</p>
+</blockquote>
+<p><strong>简单查询语句</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_influxdb.png" alt=""></p>
+<p><strong>table展示效果</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_eip.png" alt=""></p>
+<p><strong>价格图展示</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_price.png" alt=""></p>
+<h2 id="获取实时带宽信息并发送报警到钉钉"><a href="#获取实时带宽信息并发送报警到钉钉" class="headerlink" title="获取实时带宽信息并发送报警到钉钉"></a>获取实时带宽信息并发送报警到钉钉</h2><blockquote>
+<p>这个跟上面的脚本没有关联，只是获取实时带宽使用量的报警脚本。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line">import urllib2</div><div class="line">import time</div><div class="line">#from op_tools import falcon</div><div class="line"></div><div class="line">#实例化 API 句柄</div><div class="line">localtime = time.asctime( time.localtime(time.time()) )</div><div class="line"></div><div class="line">def get_eip_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取EIP对应的主机名，以及EIP信息返回</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    arg_length = len(sys.argv)</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    eip_info_list = response[&apos;EIPSet&apos;]</div><div class="line">    eip_dic = &#123;&#125;</div><div class="line">    for eip_info in eip_info_list:</div><div class="line">        # EIP绑定主机名</div><div class="line">        eip_host = eip_info[&apos;Resource&apos;][&apos;ResourceName&apos;]</div><div class="line">        eip_ip = eip_info[&apos;EIPAddr&apos;][0][&apos;IP&apos;].encode(&apos;utf-8&apos;)</div><div class="line">        eip_id = eip_info[&apos;EIPId&apos;]</div><div class="line">        dic = &#123;&#125;</div><div class="line">        dic[eip_ip] = eip_id</div><div class="line">        #print &quot;eip_host:%s,dic:%s&quot; % (eip_host,dic)</div><div class="line">        eip_dic[eip_host] = dic</div><div class="line">    #print len(eip_dic)</div><div class="line">    eip_dic[&apos;nginx-online1&apos;] = &#123;&apos;106.75.28.177&apos;: u&apos;eip-00gv0l&apos;&#125;</div><div class="line">    return eip_dic</div><div class="line"></div><div class="line">def get_eip_usage(eip_dic):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取每个EIP的实时用量(要求EIPid),</div><div class="line">    return list:[&#123;ip:usage&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_usage_dic = &#123;&#125;</div><div class="line">    for eip_host in eip_dic:</div><div class="line">        #eip_useage_dic = &#123;&#125;</div><div class="line">        eip_id=eip_dic[eip_host].values()[0].encode(&quot;utf-8&quot;)</div><div class="line">        #print eip_id</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">                    &quot;Action&quot;:&quot;DescribeBandwidthUsage&quot;,</div><div class="line">                    &quot;Region&quot;:&quot;cn-bj2&quot;,</div><div class="line">                    &quot;EIPIds.1&quot;:eip_id,</div><div class="line">                &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">        #print response</div><div class="line">        eip_usage = response[&apos;EIPSet&apos;][0][&apos;CurBandwidth&apos;]</div><div class="line">        eip_usage_dic[eip_host]=eip_usage</div><div class="line">        #eip_usage_list.append(eip_useage_dic)</div><div class="line">    return eip_usage_dic</div><div class="line"></div><div class="line">def sendto_falcon(eip_usage_list):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    报警发送到falcon</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    collect_step = 60</div><div class="line">    counter_type = falcon.CounterType.GAUGE</div><div class="line">    metric = &quot;bandwidthusage&quot;</div><div class="line">    for eip_usage in eip_usage_list:</div><div class="line">        tags=&quot;host=&quot; + eip_usage.keys()[0]</div><div class="line">        value=eip_usage.values()[0]</div><div class="line">        #print value</div><div class="line"></div><div class="line">def get_sharebw_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取共享带宽的带宽大小，以及所包含的EIP,</div><div class="line">    return list:[&#123;&apos;eiplist&apos;:[ip1,ip1],&apos;bandwidth&apos;:20&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line"></div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    share_bw_list = response[&apos;DataSet&apos;]</div><div class="line">    share_bw_info = []</div><div class="line">    for share_bw in share_bw_list:</div><div class="line">        share_bw_dic = &#123;&#125;</div><div class="line">        bandwidth = share_bw[&apos;ShareBandwidth&apos;]</div><div class="line">        eip_list = []</div><div class="line">        for eip_dic in share_bw[&apos;EIPSet&apos;]:</div><div class="line">            ip = eip_dic[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line">            eip_list.append(ip)</div><div class="line">        share_bw_dic[&apos;bandwidth&apos;]=bandwidth</div><div class="line">        share_bw_dic[&apos;eiplist&apos;]=eip_list</div><div class="line">        share_bw_info.append(share_bw_dic)</div><div class="line">    return share_bw_info</div><div class="line"></div><div class="line">def sum():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    返回比值，并简单记录log到/var/log/ubandwidth.log</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_dic = get_eip_info()</div><div class="line">    #print eip_dic</div><div class="line">    eip_to_host = &#123;&#125;</div><div class="line">    # 通过eip_dic获取IP-host对此应关系dic</div><div class="line">    for host in eip_dic:</div><div class="line">        eip = eip_dic[host].keys()[0]</div><div class="line">        eip_to_host[eip]=host</div><div class="line">    #print eip_to_host</div><div class="line">    eip_usage_dic = get_eip_usage(eip_dic)</div><div class="line">    #print eip_usage_dic</div><div class="line">    share_bw_info = get_sharebw_info()</div><div class="line">    #print share_bw_info</div><div class="line">    #各带宽和与带宽比值</div><div class="line">    ratios = &#123;&#125;</div><div class="line">    for share_bandwidth in share_bw_info:</div><div class="line">        bandwidth = share_bandwidth[&apos;bandwidth&apos;]</div><div class="line">        sum = 0</div><div class="line">        for eip in share_bandwidth[&apos;eiplist&apos;]:</div><div class="line">            host = eip_to_host[eip]</div><div class="line">            usage = eip_usage_dic[host]</div><div class="line">            sum += usage</div><div class="line">        #带宽用量与带宽的比值</div><div class="line">        ratio = sum/bandwidth</div><div class="line">        parts = [str(bandwidth),str(sum),str(ratio)]</div><div class="line">        log =localtime + &apos; &apos; + &apos;,&apos;.join(parts) + &apos;\n&apos;</div><div class="line">        with open(&apos;/var/log/ubandwidth.log&apos;,&apos;a&apos;) as f:</div><div class="line">            f.write(log)</div><div class="line">            f.close()</div><div class="line"></div><div class="line">        ratios[bandwidth]=ratio</div><div class="line"></div><div class="line">    return ratios</div><div class="line"></div><div class="line"></div><div class="line">def send_to_dingtalk(content):</div><div class="line"></div><div class="line">    url = &quot;https://oapi.dingtalk.com/robot/send?access_token=17cf865229a63452ff411243b53d64949d5a54b1ee8774e20e1ec7d4c5d60f43&quot;</div><div class="line">    #con=&#123;&quot;msgtype&quot;:&quot;text&quot;,&quot;text&quot;:&#123;&quot;content&quot;:content&#125;,&quot;isAtAll&quot;: &quot;true&quot;&#125;</div><div class="line">    con=&#123;&quot;msgtype&quot;:&quot;markdown&quot;,&quot;markdown&quot;:&#123;&quot;title&quot;:&quot;ucloud共享带宽报警&quot;,&quot;text&quot;:content&#125;,&quot;isAtAll&quot;: &quot;ture&quot;&#125;</div><div class="line">    jd=json.dumps(con)</div><div class="line">    req=urllib2.Request(url,jd)</div><div class="line">    req.add_header(&apos;Content-Type&apos;, &apos;application/json&apos;)</div><div class="line">    response=urllib2.urlopen(req)</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    ratios=sum()</div><div class="line">    localtime = time.asctime( time.localtime(time.time()) )</div><div class="line">    for bw in ratios:</div><div class="line">        if ratios[bw] &gt; 0.8:</div><div class="line">            content = u&quot;# **ucloud共享带宽报警** - %d兆那个。。。\n\n - 用量超过百分之80 \n - **值**:%f \n &gt; [请排查...](https://console.ucloud.cn/unet/sharebandwidth)&quot; % (bw,ratios[bw])</div><div class="line">            send_to_dingtalk(content)</div></pre></td></tr></table></figure></p>
+</blockquote>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/python/" rel="tag"># python</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/07/08/nginx之location-upstream-rewrite/" rel="next" title="nginx之location,upstream,rewrite">
+                <i class="fa fa-chevron-left"></i> nginx之location,upstream,rewrite
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/07/12/记录主机history/" rel="prev" title="记录主机history">
+                记录主机history <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div id="uyan_frame"></div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/uploads/fanquanqing.jpg"
+               alt="樊全清" />
+          <p class="site-author-name" itemprop="name">樊全清</p>
+           
+              <p class="site-description motion-element" itemprop="description"></p>
+           
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">13</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+          <div class="feed-link motion-element">
+            <a href="/atom.xml" rel="alternate">
+              <i class="fa fa-rss"></i>
+              RSS
+            </a>
+          </div>
+        
+
+        <div class="links-of-author motion-element">
+          
+            
+              <span class="links-of-author-item">
+                <a href="https://github.com/fanquqi" target="_blank" title="GitHub">
+                  
+                    <i class="fa fa-fw fa-github"></i>
+                  
+                  GitHub
+                </a>
+              </span>
+            
+              <span class="links-of-author-item">
+                <a href="/uploads/wechat.png" target="_blank" title="Wechat">
+                  
+                    <i class="fa fa-fw fa-globe"></i>
+                  
+                  Wechat
+                </a>
+              </span>
+            
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#apkpy"><span class="nav-text">apk.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#confpy"><span class="nav-text">conf.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#collect_uhost_pricepy"><span class="nav-text">collect_uhost_price.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#collect_eip_pricepy"><span class="nav-text">collect_eip_price.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#collect_udisk_pricepy"><span class="nav-text">collect_udisk_price.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#collect_sharebandwidth_pricepy"><span class="nav-text">collect_sharebandwidth_price.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#get_all_pricepy"><span class="nav-text">get_all_price.py</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#grafana效果展示"><span class="nav-text">grafana效果展示</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#获取实时带宽信息并发送报警到钉钉"><span class="nav-text">获取实时带宽信息并发送报警到钉钉</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">樊全清</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.1.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+    
+
+    
+      <!-- UY BEGIN -->
+      <script type="text/javascript" src="http://v2.uyan.cc/code/uyan.js?uid=2135585"></script>
+      <!-- UY END -->
+    
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+  <script type="text/javascript">
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (search_path.endsWith("json")) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url);
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x" /></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x" /></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
