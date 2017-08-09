@@ -102,12 +102,13 @@
 <meta property="og:url" content="http://yoursite.com/2017/07/12/记录主机history/index.html">
 <meta property="og:site_name" content="fix u dream">
 <meta property="og:description" content="起因，有个哥们儿要离职，直接上线上把他机器训练的东西拷贝到电脑本地，我们用的vpn，有些服务对此有点依赖，不详细说，总之影响到了一丢丢线上的情况，所以CTO很不高兴，机器历史记录也没有，啥都没有，多亏他承认了。但是我这个运维还是多少显得有点尴尬。  下面说一些改进措施  不准任何人直接登录线上机器，必须通过跳板机（上传现在文件也必须通过跳板机加以控制） openvpn与线上带宽解耦 openvp">
+<meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/bash_history_kibana.png">
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/bash_history_modify.png">
-<meta property="og:updated_time" content="2017-07-13T06:21:48.000Z">
+<meta property="og:updated_time" content="2017-08-02T08:42:45.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="记录主机history">
 <meta name="twitter:description" content="起因，有个哥们儿要离职，直接上线上把他机器训练的东西拷贝到电脑本地，我们用的vpn，有些服务对此有点依赖，不详细说，总之影响到了一丢丢线上的情况，所以CTO很不高兴，机器历史记录也没有，啥都没有，多亏他承认了。但是我这个运维还是多少显得有点尴尬。  下面说一些改进措施  不准任何人直接登录线上机器，必须通过跳板机（上传现在文件也必须通过跳板机加以控制） openvpn与线上带宽解耦 openvp">
-<meta name="twitter:image" content="http://or2jd66dq.bkt.clouddn.com/bash_history_modify.png">
+<meta name="twitter:image" content="http://or2jd66dq.bkt.clouddn.com/bash_history_kibana.png">
 
 
 
@@ -402,7 +403,7 @@
 <h3 id="重启rsyslogd"><a href="#重启rsyslogd" class="headerlink" title="重启rsyslogd"></a>重启rsyslogd</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">systemctl restart rsyslogd</div></pre></td></tr></table></figure>
 <h3 id="ansible-脚本"><a href="#ansible-脚本" class="headerlink" title="ansible 脚本"></a>ansible 脚本</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">---</div><div class="line"></div><div class="line">#- name: add scripts to bashrc</div><div class="line">#  lineinfile:</div><div class="line">#    dest=/etc/bashrc</div><div class="line">#    line=&#123;&#123;item&#125;&#125;</div><div class="line">#  with_items: &apos;&#123;&#123;bashrc_line&#125;&#125;&apos;</div><div class="line">#  register: profile</div><div class="line">- name: copy file to /etc</div><div class="line">  copy: src=bash_log.conf dest=/var/tmp</div><div class="line"></div><div class="line">- name: echo to /etc/bashrc</div><div class="line">  shell: cat /var/tmp/bash_log.conf &gt;&gt; /etc/bashrc</div><div class="line">  register: bashrc</div><div class="line"></div><div class="line">- name: source file</div><div class="line">  shell: source /etc/bashrc</div><div class="line">  when: bashrc.changed</div><div class="line"></div><div class="line"></div><div class="line">- name: copy bash.conf to /etc/rsyslog.d</div><div class="line">  copy: src=bash.conf dest=/etc/rsyslog.d</div><div class="line">  register: rsyslog_conf</div><div class="line"></div><div class="line">- name: restart rsyslog</div><div class="line">  service: name=rsyslog.service state=restarted</div><div class="line">  when: rsyslog_conf.changed</div></pre></td></tr></table></figure>
 <p>刷到每个机器上就好了   注意最好配置下logrotate每天切割一下</p>
-<p>这样就可以在kibana中看到每个登录人员的操作情况了。</p>
+<p>这样就可以在kibana中看到每个登录人员的操作情况了。<br><img src="http://or2jd66dq.bkt.clouddn.com/bash_history_kibana.png" alt=""></p>
 <h2 id="查看用户痕迹过程展示"><a href="#查看用户痕迹过程展示" class="headerlink" title="查看用户痕迹过程展示"></a>查看用户痕迹过程展示</h2><p>上面中控机上是每个人对应一个自己名字拼音的用户，使用此用户跳到线上机器，但是测试环境是直接本地可以连，测试被人搞坏了进度delay怎么办？也需要查证，可以使用以下方法<br><img src="http://or2jd66dq.bkt.clouddn.com/bash_history_modify.png" alt=""></p>
 
       
@@ -555,7 +556,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-count">43</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -577,7 +578,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-count">31</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

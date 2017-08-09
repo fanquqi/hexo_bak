@@ -27,3 +27,7 @@ tags:
 ## python
 - [alex](http://www.cnblogs.com/alex3714/)
 
+
+
+## 系统管理员资源大全
+- [系统管理员资源大全](https://my.oschina.net/HeAlvin/blog/378262)

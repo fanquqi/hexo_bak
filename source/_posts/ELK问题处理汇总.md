@@ -147,10 +147,10 @@ curl -XPUT http://192.168.1.2/_cluster/settings -d'
 `问题解决` ES在你想到这个问题之前就已经想到了。操作如下
 
 ```
-curl -XPUT localhost:9200/_cluster/settings -d '{
+curl -XPUT 10.215.33.36:9200/_cluster/settings -d '{
   "transient": {
     "cluster.routing.allocation.disk.watermark.low": "80%",
-    "cluster.routing.allocation.disk.watermark.high": "50gb",
+    "cluster.routing.allocation.disk.watermark.high": "80gb",
     "cluster.info.update.interval": "1m"
   }
 }'

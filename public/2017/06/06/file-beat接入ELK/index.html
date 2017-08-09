@@ -104,7 +104,7 @@
 <meta property="og:description" content="公司之前的日志收集使用的kids(知乎开源的日志收集工具，不知道为啥用这个，难道是因为跟我们你是邻居？)。然后统一收留存到一台机器，做中转留几天的方便大家查看，后续直接存到Hadoop中。后来搭建ELK就是直接在这个机器上起的logstash，说白了只是把这几天的日志做了可视化。但是现在我们有了另一种需求，需要收集各个机器的系统日志，加上之前做了bash_history 也需要收集。但是我并不是">
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/ELK%E6%97%A9%E6%9C%9F%E6%9E%B6%E6%9E%84.png">
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/ELK-kafka.png">
-<meta property="og:updated_time" content="2017-07-25T08:57:28.000Z">
+<meta property="og:updated_time" content="2017-08-02T08:37:20.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="file_beat接入ELK">
 <meta name="twitter:description" content="公司之前的日志收集使用的kids(知乎开源的日志收集工具，不知道为啥用这个，难道是因为跟我们你是邻居？)。然后统一收留存到一台机器，做中转留几天的方便大家查看，后续直接存到Hadoop中。后来搭建ELK就是直接在这个机器上起的logstash，说白了只是把这几天的日志做了可视化。但是现在我们有了另一种需求，需要收集各个机器的系统日志，加上之前做了bash_history 也需要收集。但是我并不是">
@@ -393,7 +393,7 @@
 
       
         <blockquote>
-<p>公司之前的日志收集使用的kids(知乎开源的日志收集工具，不知道为啥用这个，难道是因为跟我们你是邻居？)。然后统一收留存到一台机器，做中转留几天的方便大家查看，后续直接存到Hadoop中。后来搭建ELK就是直接在这个机器上起的logstash，说白了只是把这几天的日志做了可视化。但是现在我们有了另一种需求，需要收集各个机器的系统日志，加上之前做了bash_history 也需要收集。但是我并不是很想用kids,它改配置重启都比较麻烦。也不太想用整个的logstash，太大了，正好filebeat可以满足我们的需求，很轻。<br>但是还是有一个想法，之前的ELK 有的时候会出现数据延时很大的情况，我分析是ES集群的压力过大，所以我想在ES之前加一个缓冲，加一个kafka队列<br>这正好是一个实验的机会。</p>
+<p>公司之前的日志收集使用的kids(知乎开源的日志收集工具，不知道为啥用这个，难道是因为跟我们你是邻居？)。然后统一收留存到一台机器，做中转留几天的方便大家查看，后续直接存到Hadoop中。后来搭建ELK就是直接在这个机器上起的logstash，说白了只是把这几天的日志做了可视化。但是现在我们有了另一种需求，需要收集各个机器的系统日志，加上之前做了bash_history 也需要收集。但是我并不是很想用kids,它改配置重启都比较麻烦。也不太想用整个的logstash，太大了，正好filebeat可以满足我们的需求，很轻而且使用go开发。<br>但是还是有一个想法，之前的ELK 有的时候会出现数据延时很大的情况，我分析是ES集群的压力过大，所以我想在ES之前加一个缓冲，加一个kafka队列<br>这正好是一个实验的机会。</p>
 </blockquote>
 <p>之前架构：<br><img src="http://or2jd66dq.bkt.clouddn.com/ELK%E6%97%A9%E6%9C%9F%E6%9E%B6%E6%9E%84.png" alt=""></p>
 <p>架构调整如下：</p>
@@ -585,7 +585,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-count">43</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -607,7 +607,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-count">31</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

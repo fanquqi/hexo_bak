@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="http://yoursite.com/"/>
-  <updated>2017-08-01T04:12:24.000Z</updated>
+  <updated>2017-08-07T02:05:21.000Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -16,15 +16,103 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>mysql误删除表恢复</title>
+    <link href="http://yoursite.com/2017/08/04/mysql%E8%AF%AF%E5%88%A0%E9%99%A4%E8%A1%A8%E6%81%A2%E5%A4%8D/"/>
+    <id>http://yoursite.com/2017/08/04/mysql误删除表恢复/</id>
+    <published>2017-08-04T09:12:09.000Z</published>
+    <updated>2017-08-07T02:05:21.000Z</updated>
+    
+    <content type="html"><![CDATA[<h1 id="场景描述"><a href="#场景描述" class="headerlink" title="场景描述"></a>场景描述</h1><p> 今天有个开发哥哥来找我。说有个医生信息表被删除了（测试服）但是现在版本正在测试，账号已经登不上了，bug群里已经有人说话了，CTO已经看到了，情况已经很紧急了。但是我之前也没有遇到过这类事情，而且测试服mysql是不备份的，一时不知道要怎么办。</p>
+<h1 id="解决"><a href="#解决" class="headerlink" title="解决"></a>解决</h1><p><strong>但是</strong> 事情还是要解决也总是有解决办法。下边按照先后顺序记录了下我的操作方案。</p>
+<h2 id="方案一"><a href="#方案一" class="headerlink" title="方案一"></a>方案一</h2><blockquote>
+<p>使用bin-log，我们测试服mysql是有记录mysql-binlog的，（本来也是没有开的，在六月份的时候测试服总是内存不够用，我把数据库从本地迁移独立了出来开启了bin-log）</p>
+</blockquote>
+<p><strong>bin-log恢复方案介绍</strong></p>
+<p>先查看这次今天mysql操作记录，发现没有什么操作，毕竟周五， 所以计划直接恢复到删表之前（就是昨天，中间操作的一段时间有几个今天修改的记录不见得情况），然后再从删表后的时间节点到现在恢复，等于只跳过了那条删表操作，别的操作都重新来一遍。</p>
+<h3 id="操作流程"><a href="#操作流程" class="headerlink" title="操作流程"></a>操作流程</h3><p>首先查看mysql-binlog 找到误操作drop table的时间节点 这里没有图文。。。</p>
+<pre><code>// 查找对应的bin-log文件
+mysqlbinlog mysql-bin.000002 | grep -A4 &quot;table_name&quot; 
+</code></pre><p>然后恢复对应时间节点恢复（其实mysqlbinlog也可以对应postion节点恢复）<br>    mysqlbinlog -d test_medical –stop-datetime=’2017-08-03 17:57:05’ /home/mysql/3306/data/mysql-bin.000002 | mysql -uroot -p -P 3306 -S /home/mysql/3306/mysql.sock<br>    // -d 数据库名  –stop-datetime 结束时间点，–start-datetime 开始时间节点 二者可以一起写就是中间时间短的操作 </p>
+<p>可想而知我这样操作的结果，肯定是一堆冲突，因为当前数据库已经是操作过一遍的结果了，再把执行过得命令拿过来执行下，肯定是有错误。<br>所以我们方案一肯定是不可取的。</p>
+<p><img src="http://or2jd66dq.bkt.clouddn.com/binlog-error.png" alt=""></p>
+<h2 id="方案二"><a href="#方案二" class="headerlink" title="方案二"></a>方案二</h2><blockquote>
+<p>我之前是有迁移过这个MySQL的，我赶紧看了下迁移的数据压缩包还在时间是2017-6-19,顿时感觉欣喜若狂</p>
+</blockquote>
+<p>我的设想是这样的，因为时间久远肯定不能再这个mysql上恢复到一个多月之前，我想把数据包下到本地电脑mysql，恢复数据，把这个表的dump下来，传到测试服mysql。然后数据包压缩完之后有3G多 下载限速1M大约一个小时。<br>太久了。<br>我索性在测试数据库服务器上 用ansible由装了一个mysql实例端口3309用时两分钟不到。</p>
+<p>恢复数据 <a href="https://fanquqi.github.io/2017/06/16/%E5%87%A0%E7%A7%8Dmysql%E8%BF%81%E7%A7%BB/" target="_blank" rel="external">参考文档</a></p>
+<p>然后用mysqlbinlog恢复这一个多月来的数据。</p>
+<pre><code>mysqlbinlog -d test_medical --stop-datetime=&apos;2017-08-03 17:57:05&apos; /home/mysql/3306/data/mysql-bin.000001 | mysql -uroot -p -P3309 -S /home/mysql/3309/mysql.sock
+
+mysqlbinlog -d test_medical --stop-datetime=&apos;2017-08-03 17:57:05&apos; /home/mysql/3306/data/mysql-bin.000002 | mysql -uroot -p -P3309 -S /home/mysql/3309/mysql.sock
+</code></pre><p>备份表</p>
+<pre><code>mysqldump -uroot -p test_medical table_name &gt; table_name.sql
+</code></pre><p>然后进到mysql source一下  结束。。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>binlog是结合备份来用的，其实我们这次恢复也算是 <code>备份—恢复</code>流程</p>
+<p>所以</p>
+<p>数据库备份很重要，</p>
+<p>数据库备份很重要，</p>
+<p>数据库备份很重要。</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h1 id=&quot;场景描述&quot;&gt;&lt;a href=&quot;#场景描述&quot; class=&quot;headerlink&quot; title=&quot;场景描述&quot;&gt;&lt;/a&gt;场景描述&lt;/h1&gt;&lt;p&gt; 今天有个开发哥哥来找我。说有个医生信息表被删除了（测试服）但是现在版本正在测试，账号已经登不上了，bug群里已经有人说话了
+    
+    </summary>
+    
+      <category term="数据库" scheme="http://yoursite.com/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/"/>
+    
+    
+      <category term="MySQL" scheme="http://yoursite.com/tags/MySQL/"/>
+    
+  </entry>
+  
+  <entry>
+    <title>MySQL问题查找,状态查看</title>
+    <link href="http://yoursite.com/2017/08/02/MySQL%E9%97%AE%E9%A2%98%E6%9F%A5%E6%89%BE-%E7%8A%B6%E6%80%81%E6%9F%A5%E7%9C%8B/"/>
+    <id>http://yoursite.com/2017/08/02/MySQL问题查找-状态查看/</id>
+    <published>2017-08-02T08:35:18.000Z</published>
+    <updated>2017-08-08T03:43:23.000Z</updated>
+    
+    <content type="html"><![CDATA[<p>导火索: 今天后端上线，上线脚本执行到数据库更改的时候卡住了(公司开发的devops,web操作)，登录机器查看ansible进程是在的，证明SQL 执行出错了。之前我很少接触mysql，全是部署增删改查，多表查询都少用，所以这次是一边Google一边查找原因。</p>
+<p>首先，这次数据库修改一共有四处，前三个都已经执行完成，就是最后一个加字段的没有成功。</p>
+<p><strong>排查过程</strong></p>
+<ol>
+<li><p>查看表大小，确认不是因为表大导致执行时间过长。<br> 其实这个再上线操作的时候又应该有个大概的认识，比如这个表功能大概是多少行，属于哪个工程等等，如果对业务熟悉，应该很快判断的出。<br> <code>相关命令</code></p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">// 直接查找，可能较慢</div><div class="line">select count(id) from table_name; </div><div class="line">// 查找information_schema中的信息</div><div class="line">select * from information_schema.TABLES </div><div class="line">    where information_schema.TABLES.TABLE_SCHEMA=&apos;databasename&apos;</div><div class="line">    and information_schema.TABLES.TABLE_NAME=&apos;tablename&apos;\G</div></pre></td></tr></table></figure>
+</li>
+<li><p>如果不是表太大，可以看下正在进行的事务<br> 了解事务的工作模式很重要，首先要知道自己的MySQL隔离级别，及每种隔离级别的特点。参考<a href="https://tech.meituan.com/innodb-lock.html" target="_blank" rel="external">美团点评团队的分享</a> 我们是使用的 已提交读（Read committed）</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div></pre></td><td class="code"><pre><div class="line">// 查看当前隔离级别</div><div class="line">SELECT @@session.tx_isolation;</div><div class="line">// 查看当前执行的事务</div><div class="line">SELECT * FROM information_schema.INNODB_TRX;</div></pre></td></tr></table></figure>
+<p> 当时主库加上字段之后，从库一直加不上字段就是因为有另一个事务一直没有提交，导致表一直是只读状态，阻塞了。</p>
+</li>
+</ol>
+<p>select * from information_schema.TABLES<br>        where information_schema.TABLES.TABLE_SCHEMA=’online_medical’<br>        and information_schema.TABLES.TABLE_NAME=’api_familydoctorservice’\G</p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;导火索: 今天后端上线，上线脚本执行到数据库更改的时候卡住了(公司开发的devops,web操作)，登录机器查看ansible进程是在的，证明SQL 执行出错了。之前我很少接触mysql，全是部署增删改查，多表查询都少用，所以这次是一边Google一边查找原因。&lt;/p&gt;
+&lt;
+    
+    </summary>
+    
+      <category term="数据库" scheme="http://yoursite.com/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/"/>
+    
+    
+      <category term="MySQL" scheme="http://yoursite.com/tags/MySQL/"/>
+    
+  </entry>
+  
+  <entry>
     <title>nginx之请求限流限速问题</title>
     <link href="http://yoursite.com/2017/07/20/nginx%E4%B9%8B%E8%AF%B7%E6%B1%82%E9%99%90%E6%B5%81%E9%99%90%E9%80%9F%E9%97%AE%E9%A2%98/"/>
     <id>http://yoursite.com/2017/07/20/nginx之请求限流限速问题/</id>
     <published>2017-07-20T07:04:07.000Z</published>
-    <updated>2017-08-01T04:12:24.000Z</updated>
+    <updated>2017-08-03T07:45:46.000Z</updated>
     
     <content type="html"><![CDATA[<h1 id="单位时间按照ip地址限速"><a href="#单位时间按照IP地址限速" class="headerlink" title="单位时间按照IP地址限速"></a>单位时间按照IP地址限速</h1><p>工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面就会用到map来设置。看下边例子展示</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line">http &#123;  </div><div class="line">    geo $white_ip &#123;</div><div class="line">        ranges;</div><div class="line">        default 0;</div><div class="line">        127.0.0.1-127.0.0.1 1;</div><div class="line"></div><div class="line">        36.110.16.242-36.110.16.242 1</div><div class="line">         </div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    map $white_ip $white_ip_address &#123;</div><div class="line">        0 $binary_remote_addr;</div><div class="line">        1 &quot;&quot;;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    limit_req_zone $white_ip_address zone=:10m rate=20r/s;</div><div class="line">    </div><div class="line">    ....</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>解释下：</p>
+<p><strong>解释下</strong></p>
 <p>上述通过<code>geo模块</code> 设定了白名单 </p>
 <p><strong>ngx_http_geo_module</strong> 模块可以用来创建变量，其值依赖于客户端IP地址。<br>语法: geo [$address] $variable { … }    设置在http 模块中<br><code>[$address]</code> 可以为空，使用默认变量也就是$remote_addr 其实例子中 <code>geo $white_ip {}</code>  就相当于<code>geo $remote_addr $white_ip {}</code><br><code>$white_ip</code> 命名为<code>white_ip</code><br><code>ranges</code> 使用以地址段的形式定义地址，这个参数必须放在首位。为了加速装载地址库，地址应按升序定义。<br><code>default</code> 设置默认值，如果客户端地址不能匹配任意一个定义的地址，nginx将使用此值。</p>
 <p>注：如果36.110.16.242 这个IP地址访问本站, <code>white_ip</code> 这个变量值就是 1,否则就是0 </p>
@@ -52,10 +140,14 @@
     <link href="http://yoursite.com/2017/07/18/socket%E8%A7%A3%E8%AF%BB/"/>
     <id>http://yoursite.com/2017/07/18/socket解读/</id>
     <published>2017-07-18T02:24:52.000Z</published>
-    <updated>2017-07-31T05:45:26.000Z</updated>
+    <updated>2017-08-07T09:26:30.000Z</updated>
     
     <content type="html"><![CDATA[<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
 <p>之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。</p>
+</blockquote>
+<p>用廖雪峰老师的话说</p>
+<blockquote>
+<p>Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个Socket需要知道目标计算机的IP地址和端口号，再指定协议类型即可。</p>
 </blockquote>
 <h1 id="tcpip"><a href="#TCP-IP" class="headerlink" title="TCP/IP"></a>TCP/IP</h1><p>要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作在第几层？<br>TCP/IP（Transmission Control Protocol/Internet Protocol）即传输控制协议/网间协议，定义了主机如何连入因特网及数据如何再它们之间传输的标准，</p>
 <p>从字面意思来看TCP/IP是TCP和IP协议的合称，但实际上TCP/IP协议是指因特网整个TCP/IP协议簇。不同于ISO模型的七个分层，TCP/IP协议参考模型把所有的TCP/IP系列协议归类到四个抽象层中</p>
@@ -64,6 +156,8 @@
 <p>网络层：IP，ICMP，OSPF，EIGRP，IGMP</p>
 <p>数据链路层：SLIP，CSLIP，PPP，MTU</p>
 <p>每一层都是建立在下一层提供的服务上，为上一层提供服务</p>
+<p>python socket客户端编写(down 新浪首页)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"># -*- coding:utf-8 -*-</div><div class="line">import socket</div><div class="line"></div><div class="line">s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</div><div class="line"></div><div class="line">s.connect((&apos;www.sina.com&apos;,80))</div><div class="line"></div><div class="line">s.send(&apos;GET / HTTP/1.1\r\nHost: www.sina.com.cn\r\nConnection: close\r\n\r\n&apos;)</div><div class="line"></div><div class="line">buffer = []</div><div class="line">while True:</div><div class="line"></div><div class="line">    d = s.recv(2048)</div><div class="line">    if d:</div><div class="line">        buffer.append(d)</div><div class="line">    else:</div><div class="line">        break</div><div class="line"></div><div class="line">data=&apos;&apos;.join(buffer)</div><div class="line">s.close</div><div class="line">header, html = data.split(&apos;\r\n\r\n&apos;,1)</div><div class="line">print header</div></pre></td></tr></table></figure></p>
+<p>server端编写</p>
 ]]></content>
     
     <summary type="html">
@@ -85,7 +179,7 @@
     <link href="http://yoursite.com/2017/07/13/MySQL%E4%BD%BF%E7%94%A8%E8%AE%B0%E5%BD%95/"/>
     <id>http://yoursite.com/2017/07/13/MySQL使用记录/</id>
     <published>2017-07-13T08:02:23.000Z</published>
-    <updated>2017-07-28T08:32:32.000Z</updated>
+    <updated>2017-08-03T07:37:04.000Z</updated>
     
     <content type="html"><![CDATA[<p>数据库现在为止我只接触过MySQL，MySQL自从被oracle收购后，就衍生出三大阵营，Drizzle、MariaDB和Percona Server（包括XtraDB引擎），第一个没接触过不太了解，MariaDB与percona又有很多相似点，比如都支持XtraDB（innodb加强版）<br>看看两者优缺点：</p>
 <ul>
@@ -190,7 +284,7 @@
     <link href="http://yoursite.com/2017/07/12/%E8%AE%B0%E5%BD%95%E4%B8%BB%E6%9C%BAhistory/"/>
     <id>http://yoursite.com/2017/07/12/记录主机history/</id>
     <published>2017-07-12T06:10:20.000Z</published>
-    <updated>2017-07-13T06:21:48.000Z</updated>
+    <updated>2017-08-02T08:42:45.000Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p>起因，有个哥们儿要离职，直接上线上把他机器训练的东西拷贝到电脑本地，我们用的vpn，有些服务对此有点依赖，不详细说，总之影响到了一丢丢线上的情况，所以CTO很不高兴，机器历史记录也没有，啥都没有，多亏他承认了。但是我这个运维还是多少显得有点尴尬。</p>
@@ -225,7 +319,7 @@
 <h3 id="重启rsyslogd"><a href="#重启rsyslogd" class="headerlink" title="重启rsyslogd"></a>重启rsyslogd</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">systemctl restart rsyslogd</div></pre></td></tr></table></figure>
 <h3 id="ansible-脚本"><a href="#ansible-脚本" class="headerlink" title="ansible 脚本"></a>ansible 脚本</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line">---</div><div class="line"></div><div class="line">#- name: add scripts to bashrc</div><div class="line">#  lineinfile:</div><div class="line">#    dest=/etc/bashrc</div><div class="line">#    line=&#123;&#123;item&#125;&#125;</div><div class="line">#  with_items: &apos;&#123;&#123;bashrc_line&#125;&#125;&apos;</div><div class="line">#  register: profile</div><div class="line">- name: copy file to /etc</div><div class="line">  copy: src=bash_log.conf dest=/var/tmp</div><div class="line"></div><div class="line">- name: echo to /etc/bashrc</div><div class="line">  shell: cat /var/tmp/bash_log.conf &gt;&gt; /etc/bashrc</div><div class="line">  register: bashrc</div><div class="line"></div><div class="line">- name: source file</div><div class="line">  shell: source /etc/bashrc</div><div class="line">  when: bashrc.changed</div><div class="line"></div><div class="line"></div><div class="line">- name: copy bash.conf to /etc/rsyslog.d</div><div class="line">  copy: src=bash.conf dest=/etc/rsyslog.d</div><div class="line">  register: rsyslog_conf</div><div class="line"></div><div class="line">- name: restart rsyslog</div><div class="line">  service: name=rsyslog.service state=restarted</div><div class="line">  when: rsyslog_conf.changed</div></pre></td></tr></table></figure>
 <p>刷到每个机器上就好了   注意最好配置下logrotate每天切割一下</p>
-<p>这样就可以在kibana中看到每个登录人员的操作情况了。</p>
+<p>这样就可以在kibana中看到每个登录人员的操作情况了。<br><img src="http://or2jd66dq.bkt.clouddn.com/bash_history_kibana.png" alt=""></p>
 <h2 id="查看用户痕迹过程展示"><a href="#查看用户痕迹过程展示" class="headerlink" title="查看用户痕迹过程展示"></a>查看用户痕迹过程展示</h2><p>上面中控机上是每个人对应一个自己名字拼音的用户，使用此用户跳到线上机器，但是测试环境是直接本地可以连，测试被人搞坏了进度delay怎么办？也需要查证，可以使用以下方法<br><img src="http://or2jd66dq.bkt.clouddn.com/bash_history_modify.png" alt=""></p>
 ]]></content>
     
@@ -246,7 +340,7 @@
     <link href="http://yoursite.com/2017/07/11/ucloud-API%E4%BD%BF%E7%94%A8/"/>
     <id>http://yoursite.com/2017/07/11/ucloud-API使用/</id>
     <published>2017-07-11T09:34:50.000Z</published>
-    <updated>2017-07-12T02:51:11.000Z</updated>
+    <updated>2017-08-03T07:46:09.000Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p>我们公司有些服务使用ucloud主机，付费等问题都是我负责，前一段时间跟他们的架构沟通了一下，发现他们的API还是很方便的，尤其他们提供弹性IP可以自由伸缩，我们完全可以写个脚本统计带宽，实时调整。如果在云上跑docker，完全可以直接通过流量挥着访问量实时业务扩容。运维真的做到自动化。</p>
@@ -285,8 +379,9 @@
 <p><strong>table展示效果</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_eip.png" alt=""></p>
 <p><strong>价格图展示</strong><br><img src="http://or2jd66dq.bkt.clouddn.com/grafana_ucloud_price.png" alt=""></p>
 <h2 id="获取实时带宽信息并发送报警到钉钉"><a href="#获取实时带宽信息并发送报警到钉钉" class="headerlink" title="获取实时带宽信息并发送报警到钉钉"></a>获取实时带宽信息并发送报警到钉钉</h2><blockquote>
-<p>这个跟上面的脚本没有关联，只是获取实时带宽使用量的报警脚本。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line">import urllib2</div><div class="line">import time</div><div class="line">#from op_tools import falcon</div><div class="line"></div><div class="line">#实例化 API 句柄</div><div class="line">localtime = time.asctime( time.localtime(time.time()) )</div><div class="line"></div><div class="line">def get_eip_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取EIP对应的主机名，以及EIP信息返回</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    arg_length = len(sys.argv)</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    eip_info_list = response[&apos;EIPSet&apos;]</div><div class="line">    eip_dic = &#123;&#125;</div><div class="line">    for eip_info in eip_info_list:</div><div class="line">        # EIP绑定主机名</div><div class="line">        eip_host = eip_info[&apos;Resource&apos;][&apos;ResourceName&apos;]</div><div class="line">        eip_ip = eip_info[&apos;EIPAddr&apos;][0][&apos;IP&apos;].encode(&apos;utf-8&apos;)</div><div class="line">        eip_id = eip_info[&apos;EIPId&apos;]</div><div class="line">        dic = &#123;&#125;</div><div class="line">        dic[eip_ip] = eip_id</div><div class="line">        #print &quot;eip_host:%s,dic:%s&quot; % (eip_host,dic)</div><div class="line">        eip_dic[eip_host] = dic</div><div class="line">    #print len(eip_dic)</div><div class="line">    eip_dic[&apos;nginx-online1&apos;] = &#123;&apos;106.75.28.177&apos;: u&apos;eip-00gv0l&apos;&#125;</div><div class="line">    return eip_dic</div><div class="line"></div><div class="line">def get_eip_usage(eip_dic):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取每个EIP的实时用量(要求EIPid),</div><div class="line">    return list:[&#123;ip:usage&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_usage_dic = &#123;&#125;</div><div class="line">    for eip_host in eip_dic:</div><div class="line">        #eip_useage_dic = &#123;&#125;</div><div class="line">        eip_id=eip_dic[eip_host].values()[0].encode(&quot;utf-8&quot;)</div><div class="line">        #print eip_id</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">                    &quot;Action&quot;:&quot;DescribeBandwidthUsage&quot;,</div><div class="line">                    &quot;Region&quot;:&quot;cn-bj2&quot;,</div><div class="line">                    &quot;EIPIds.1&quot;:eip_id,</div><div class="line">                &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">        #print response</div><div class="line">        eip_usage = response[&apos;EIPSet&apos;][0][&apos;CurBandwidth&apos;]</div><div class="line">        eip_usage_dic[eip_host]=eip_usage</div><div class="line">        #eip_usage_list.append(eip_useage_dic)</div><div class="line">    return eip_usage_dic</div><div class="line"></div><div class="line">def sendto_falcon(eip_usage_list):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    报警发送到falcon</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    collect_step = 60</div><div class="line">    counter_type = falcon.CounterType.GAUGE</div><div class="line">    metric = &quot;bandwidthusage&quot;</div><div class="line">    for eip_usage in eip_usage_list:</div><div class="line">        tags=&quot;host=&quot; + eip_usage.keys()[0]</div><div class="line">        value=eip_usage.values()[0]</div><div class="line">        #print value</div><div class="line"></div><div class="line">def get_sharebw_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取共享带宽的带宽大小，以及所包含的EIP,</div><div class="line">    return list:[&#123;&apos;eiplist&apos;:[ip1,ip1],&apos;bandwidth&apos;:20&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line"></div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    share_bw_list = response[&apos;DataSet&apos;]</div><div class="line">    share_bw_info = []</div><div class="line">    for share_bw in share_bw_list:</div><div class="line">        share_bw_dic = &#123;&#125;</div><div class="line">        bandwidth = share_bw[&apos;ShareBandwidth&apos;]</div><div class="line">        eip_list = []</div><div class="line">        for eip_dic in share_bw[&apos;EIPSet&apos;]:</div><div class="line">            ip = eip_dic[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line">            eip_list.append(ip)</div><div class="line">        share_bw_dic[&apos;bandwidth&apos;]=bandwidth</div><div class="line">        share_bw_dic[&apos;eiplist&apos;]=eip_list</div><div class="line">        share_bw_info.append(share_bw_dic)</div><div class="line">    return share_bw_info</div><div class="line"></div><div class="line">def sum():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    返回比值，并简单记录log到/var/log/ubandwidth.log</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_dic = get_eip_info()</div><div class="line">    #print eip_dic</div><div class="line">    eip_to_host = &#123;&#125;</div><div class="line">    # 通过eip_dic获取IP-host对此应关系dic</div><div class="line">    for host in eip_dic:</div><div class="line">        eip = eip_dic[host].keys()[0]</div><div class="line">        eip_to_host[eip]=host</div><div class="line">    #print eip_to_host</div><div class="line">    eip_usage_dic = get_eip_usage(eip_dic)</div><div class="line">    #print eip_usage_dic</div><div class="line">    share_bw_info = get_sharebw_info()</div><div class="line">    #print share_bw_info</div><div class="line">    #各带宽和与带宽比值</div><div class="line">    ratios = &#123;&#125;</div><div class="line">    for share_bandwidth in share_bw_info:</div><div class="line">        bandwidth = share_bandwidth[&apos;bandwidth&apos;]</div><div class="line">        sum = 0</div><div class="line">        for eip in share_bandwidth[&apos;eiplist&apos;]:</div><div class="line">            host = eip_to_host[eip]</div><div class="line">            usage = eip_usage_dic[host]</div><div class="line">            sum += usage</div><div class="line">        #带宽用量与带宽的比值</div><div class="line">        ratio = sum/bandwidth</div><div class="line">        parts = [str(bandwidth),str(sum),str(ratio)]</div><div class="line">        log =localtime + &apos; &apos; + &apos;,&apos;.join(parts) + &apos;\n&apos;</div><div class="line">        with open(&apos;/var/log/ubandwidth.log&apos;,&apos;a&apos;) as f:</div><div class="line">            f.write(log)</div><div class="line">            f.close()</div><div class="line"></div><div class="line">        ratios[bandwidth]=ratio</div><div class="line"></div><div class="line">    return ratios</div><div class="line"></div><div class="line"></div><div class="line">def send_to_dingtalk(content):</div><div class="line"></div><div class="line">    url = &quot;https://oapi.dingtalk.com/robot/send?access_token=17cf865229a63452ff411243b53d64949d5a54b1ee8774e20e1ec7d4c5d60f43&quot;</div><div class="line">    #con=&#123;&quot;msgtype&quot;:&quot;text&quot;,&quot;text&quot;:&#123;&quot;content&quot;:content&#125;,&quot;isAtAll&quot;: &quot;true&quot;&#125;</div><div class="line">    con=&#123;&quot;msgtype&quot;:&quot;markdown&quot;,&quot;markdown&quot;:&#123;&quot;title&quot;:&quot;ucloud共享带宽报警&quot;,&quot;text&quot;:content&#125;,&quot;isAtAll&quot;: &quot;ture&quot;&#125;</div><div class="line">    jd=json.dumps(con)</div><div class="line">    req=urllib2.Request(url,jd)</div><div class="line">    req.add_header(&apos;Content-Type&apos;, &apos;application/json&apos;)</div><div class="line">    response=urllib2.urlopen(req)</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    ratios=sum()</div><div class="line">    localtime = time.asctime( time.localtime(time.time()) )</div><div class="line">    for bw in ratios:</div><div class="line">        if ratios[bw] &gt; 0.8:</div><div class="line">            content = u&quot;# **ucloud共享带宽报警** - %d兆那个。。。\n\n - 用量超过百分之80 \n - **值**:%f \n &gt; [请排查...](https://console.ucloud.cn/unet/sharebandwidth)&quot; % (bw,ratios[bw])</div><div class="line">            send_to_dingtalk(content)</div></pre></td></tr></table></figure></p>
+<p>这个跟上面的脚本没有关联，只是获取实时带宽使用量的报警脚本。</p>
 </blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div><div class="line">85</div><div class="line">86</div><div class="line">87</div><div class="line">88</div><div class="line">89</div><div class="line">90</div><div class="line">91</div><div class="line">92</div><div class="line">93</div><div class="line">94</div><div class="line">95</div><div class="line">96</div><div class="line">97</div><div class="line">98</div><div class="line">99</div><div class="line">100</div><div class="line">101</div><div class="line">102</div><div class="line">103</div><div class="line">104</div><div class="line">105</div><div class="line">106</div><div class="line">107</div><div class="line">108</div><div class="line">109</div><div class="line">110</div><div class="line">111</div><div class="line">112</div><div class="line">113</div><div class="line">114</div><div class="line">115</div><div class="line">116</div><div class="line">117</div><div class="line">118</div><div class="line">119</div><div class="line">120</div><div class="line">121</div><div class="line">122</div><div class="line">123</div><div class="line">124</div><div class="line">125</div><div class="line">126</div><div class="line">127</div><div class="line">128</div><div class="line">129</div><div class="line">130</div><div class="line">131</div><div class="line">132</div><div class="line">133</div><div class="line">134</div><div class="line">135</div><div class="line">136</div><div class="line">137</div><div class="line">138</div><div class="line">139</div><div class="line">140</div><div class="line">141</div><div class="line">142</div><div class="line">143</div><div class="line">144</div><div class="line">145</div><div class="line">146</div><div class="line">147</div><div class="line">148</div><div class="line">149</div><div class="line">150</div><div class="line">151</div><div class="line">152</div></pre></td><td class="code"><pre><div class="line">#!/usr/bin/env python</div><div class="line"># -*- coding: utf-8 -*-</div><div class="line"></div><div class="line">from sdk import UcloudApiClient</div><div class="line">from config import *</div><div class="line">import sys</div><div class="line">import json</div><div class="line">import urllib2</div><div class="line">import time</div><div class="line">#from op_tools import falcon</div><div class="line"></div><div class="line">#实例化 API 句柄</div><div class="line">localtime = time.asctime( time.localtime(time.time()) )</div><div class="line"></div><div class="line">def get_eip_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取EIP对应的主机名，以及EIP信息返回</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    arg_length = len(sys.argv)</div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeEIP&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    eip_info_list = response[&apos;EIPSet&apos;]</div><div class="line">    eip_dic = &#123;&#125;</div><div class="line">    for eip_info in eip_info_list:</div><div class="line">        # EIP绑定主机名</div><div class="line">        eip_host = eip_info[&apos;Resource&apos;][&apos;ResourceName&apos;]</div><div class="line">        eip_ip = eip_info[&apos;EIPAddr&apos;][0][&apos;IP&apos;].encode(&apos;utf-8&apos;)</div><div class="line">        eip_id = eip_info[&apos;EIPId&apos;]</div><div class="line">        dic = &#123;&#125;</div><div class="line">        dic[eip_ip] = eip_id</div><div class="line">        #print &quot;eip_host:%s,dic:%s&quot; % (eip_host,dic)</div><div class="line">        eip_dic[eip_host] = dic</div><div class="line">    #print len(eip_dic)</div><div class="line">    eip_dic[&apos;nginx-online1&apos;] = &#123;&apos;106.75.28.177&apos;: u&apos;eip-00gv0l&apos;&#125;</div><div class="line">    return eip_dic</div><div class="line"></div><div class="line">def get_eip_usage(eip_dic):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取每个EIP的实时用量(要求EIPid),</div><div class="line">    return list:[&#123;ip:usage&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_usage_dic = &#123;&#125;</div><div class="line">    for eip_host in eip_dic:</div><div class="line">        #eip_useage_dic = &#123;&#125;</div><div class="line">        eip_id=eip_dic[eip_host].values()[0].encode(&quot;utf-8&quot;)</div><div class="line">        #print eip_id</div><div class="line">        ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">        Parameters=&#123;</div><div class="line">                    &quot;Action&quot;:&quot;DescribeBandwidthUsage&quot;,</div><div class="line">                    &quot;Region&quot;:&quot;cn-bj2&quot;,</div><div class="line">                    &quot;EIPIds.1&quot;:eip_id,</div><div class="line">                &#125;</div><div class="line">        response = ApiClient.get(&quot;/&quot;, Parameters);</div><div class="line">        #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">        #print response</div><div class="line">        eip_usage = response[&apos;EIPSet&apos;][0][&apos;CurBandwidth&apos;]</div><div class="line">        eip_usage_dic[eip_host]=eip_usage</div><div class="line">        #eip_usage_list.append(eip_useage_dic)</div><div class="line">    return eip_usage_dic</div><div class="line"></div><div class="line">def sendto_falcon(eip_usage_list):</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    报警发送到falcon</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    collect_step = 60</div><div class="line">    counter_type = falcon.CounterType.GAUGE</div><div class="line">    metric = &quot;bandwidthusage&quot;</div><div class="line">    for eip_usage in eip_usage_list:</div><div class="line">        tags=&quot;host=&quot; + eip_usage.keys()[0]</div><div class="line">        value=eip_usage.values()[0]</div><div class="line">        #print value</div><div class="line"></div><div class="line">def get_sharebw_info():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    获取共享带宽的带宽大小，以及所包含的EIP,</div><div class="line">    return list:[&#123;&apos;eiplist&apos;:[ip1,ip1],&apos;bandwidth&apos;:20&#125;...]</div><div class="line">    &apos;&apos;&apos;</div><div class="line"></div><div class="line">    ApiClient = UcloudApiClient(base_url, public_key, private_key)</div><div class="line">    Parameters=&#123;&quot;Action&quot;:&quot;DescribeShareBandwidth&quot;, &quot;Region&quot;:&quot;cn-bj2&quot;&#125;</div><div class="line">    response = ApiClient.get(&quot;/&quot;, Parameters );</div><div class="line">    #print json.dumps(response, sort_keys=True, indent=4, separators=(&apos;,&apos;, &apos;: &apos;))</div><div class="line">    share_bw_list = response[&apos;DataSet&apos;]</div><div class="line">    share_bw_info = []</div><div class="line">    for share_bw in share_bw_list:</div><div class="line">        share_bw_dic = &#123;&#125;</div><div class="line">        bandwidth = share_bw[&apos;ShareBandwidth&apos;]</div><div class="line">        eip_list = []</div><div class="line">        for eip_dic in share_bw[&apos;EIPSet&apos;]:</div><div class="line">            ip = eip_dic[&apos;EIPAddr&apos;][0][&apos;IP&apos;]</div><div class="line">            eip_list.append(ip)</div><div class="line">        share_bw_dic[&apos;bandwidth&apos;]=bandwidth</div><div class="line">        share_bw_dic[&apos;eiplist&apos;]=eip_list</div><div class="line">        share_bw_info.append(share_bw_dic)</div><div class="line">    return share_bw_info</div><div class="line"></div><div class="line">def sum():</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    返回比值，并简单记录log到/var/log/ubandwidth.log</div><div class="line">    &apos;&apos;&apos;</div><div class="line">    eip_dic = get_eip_info()</div><div class="line">    #print eip_dic</div><div class="line">    eip_to_host = &#123;&#125;</div><div class="line">    # 通过eip_dic获取IP-host对此应关系dic</div><div class="line">    for host in eip_dic:</div><div class="line">        eip = eip_dic[host].keys()[0]</div><div class="line">        eip_to_host[eip]=host</div><div class="line">    #print eip_to_host</div><div class="line">    eip_usage_dic = get_eip_usage(eip_dic)</div><div class="line">    #print eip_usage_dic</div><div class="line">    share_bw_info = get_sharebw_info()</div><div class="line">    #print share_bw_info</div><div class="line">    #各带宽和与带宽比值</div><div class="line">    ratios = &#123;&#125;</div><div class="line">    for share_bandwidth in share_bw_info:</div><div class="line">        bandwidth = share_bandwidth[&apos;bandwidth&apos;]</div><div class="line">        sum = 0</div><div class="line">        for eip in share_bandwidth[&apos;eiplist&apos;]:</div><div class="line">            host = eip_to_host[eip]</div><div class="line">            usage = eip_usage_dic[host]</div><div class="line">            sum += usage</div><div class="line">        #带宽用量与带宽的比值</div><div class="line">        ratio = sum/bandwidth</div><div class="line">        parts = [str(bandwidth),str(sum),str(ratio)]</div><div class="line">        log =localtime + &apos; &apos; + &apos;,&apos;.join(parts) + &apos;\n&apos;</div><div class="line">        with open(&apos;/var/log/ubandwidth.log&apos;,&apos;a&apos;) as f:</div><div class="line">            f.write(log)</div><div class="line">            f.close()</div><div class="line"></div><div class="line">        ratios[bandwidth]=ratio</div><div class="line"></div><div class="line">    return ratios</div><div class="line"></div><div class="line"></div><div class="line">def send_to_dingtalk(content):</div><div class="line"></div><div class="line">    url = &quot;https://oapi.dingtalk.com/robot/send?access_token=17cf865229a63452ff411243b53d64949d5a54b1ee8774e20e1ec7d4c5d60f43&quot;</div><div class="line">    #con=&#123;&quot;msgtype&quot;:&quot;text&quot;,&quot;text&quot;:&#123;&quot;content&quot;:content&#125;,&quot;isAtAll&quot;: &quot;true&quot;&#125;</div><div class="line">    con=&#123;&quot;msgtype&quot;:&quot;markdown&quot;,&quot;markdown&quot;:&#123;&quot;title&quot;:&quot;ucloud共享带宽报警&quot;,&quot;text&quot;:content&#125;,&quot;isAtAll&quot;: &quot;ture&quot;&#125;</div><div class="line">    jd=json.dumps(con)</div><div class="line">    req=urllib2.Request(url,jd)</div><div class="line">    req.add_header(&apos;Content-Type&apos;, &apos;application/json&apos;)</div><div class="line">    response=urllib2.urlopen(req)</div><div class="line"></div><div class="line">if __name__ == &apos;__main__&apos;:</div><div class="line">    ratios=sum()</div><div class="line">    localtime = time.asctime( time.localtime(time.time()) )</div><div class="line">    for bw in ratios:</div><div class="line">        if ratios[bw] &gt; 0.8:</div><div class="line">            content = u&quot;# **ucloud共享带宽报警** - %d兆那个。。。\n\n - 用量超过百分之80 \n - **值**:%f \n &gt; [请排查...](https://console.ucloud.cn/unet/sharebandwidth)&quot; % (bw,ratios[bw])</div><div class="line">            send_to_dingtalk(content)</div></pre></td></tr></table></figure>
 ]]></content>
     
     <summary type="html">
@@ -308,7 +403,7 @@
     <link href="http://yoursite.com/2017/07/08/nginx%E4%B9%8Blocation-upstream-rewrite/"/>
     <id>http://yoursite.com/2017/07/08/nginx之location-upstream-rewrite/</id>
     <published>2017-07-08T06:19:45.000Z</published>
-    <updated>2017-08-01T11:09:52.000Z</updated>
+    <updated>2017-08-09T03:13:51.000Z</updated>
     
     <content type="html"><![CDATA[<blockquote>
 <p>nginx配置第三篇，<a href="https://fanquqi.github.io/2017/07/06/nginx%E4%B9%8B%E5%AE%89%E8%A3%85%E9%85%8D%E7%BD%AE/" target="_blank" rel="external">nginx安装配置</a>中讲了很多基础配置，这次讲一下具体的操作配置。</p>
@@ -353,7 +448,7 @@
 </tr>
 </tbody>
 </table>
-<p>那么如果我们在一个虚拟主机下边写了很多location 规则，哪一个先匹配哪一个后匹配呢？<br>是这样的。<br>nginx会根据模糊程度排序的</p>
+<p>&emsp;&emsp;那么如果我们在一个虚拟主机下边写了很多location 规则，哪一个先匹配哪一个后匹配呢？<br>是这样的。<br>nginx会根据模糊程度排序的</p>
 <ul>
 <li>首先精确匹配 =</li>
 <li>其次前缀匹配 ^~</li>
@@ -363,21 +458,82 @@
 <li>当有匹配成功时候，停止匹配，按当前匹配规则处理请求</li>
 </ul>
 <h2 id="upstream"><a href="#upstream" class="headerlink" title="upstream"></a>upstream</h2><blockquote>
-<p>负载均衡模块</p>
+<p>负载均衡模块,负责根据配置合理分流到各个代理节点，而且自带后端节点健康检查（需要自己通过proxy_read_timeout指令和proxy_next_upstream指令配置）</p>
 </blockquote>
-<p><strong>语法</strong></p>
+<p><a href="http://nolinux.blog.51cto.com/4824967/1594029" target="_blank" rel="external">参考文章</a><br><strong>语法</strong> <code>upstream name {server ip:port 状态}</code></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line">http &#123;</div><div class="line">    upstream name &#123;</div><div class="line">        </div><div class="line">        [ip_hash;]</div><div class="line">        server ip:port [weight=n];</div><div class="line">        server ip:port [weight=n];</div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">server &#123;</div><div class="line">    listen 80;</div><div class="line">    server_name   www.xxx.com; </div><div class="line"></div><div class="line">    proxy_pass http://name;</div><div class="line">    或者</div><div class="line">    uwsgi_pass </div><div class="line">    或者</div><div class="line">    fast_cgi_pass</div><div class="line">    &#125;</div><div class="line">    </div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>上下文 http server location </p>
+<p>负载均衡策略: </p>
+<ul>
+<li>轮询(默认)</li>
+<li>设置权重(weight)</li>
+<li>ip_hash(每个请求按访问ip的hash结果分配，这样每个访客固定访问一个后端服务器，可以解决session的问题。)</li>
+</ul>
+<p>其次还可以定义状态</p>
+<ul>
+<li>down 表示单前的server暂时不参与负载</li>
+<li>weight 默认为1.weight越大，负载的权重就越大。</li>
+<li>max_fails ：允许请求失败的次数默认为1.当超过最大次数时，返回proxy_next_upstream 模块定义的错误</li>
+<li>fail_timeout:max_fails次失败后，暂停的时间。</li>
+<li>backup： 其它所有的非backup机器down或者忙的时候，请求backup机器。所以这台机器压力会最轻。</li>
+</ul>
+<h3 id="负载均衡后端节点健康检查"><a href="#负载均衡后端节点健康检查" class="headerlink" title="负载均衡后端节点健康检查"></a>负载均衡后端节点健康检查</h3><p>&emsp;&emsp;严格来说，nginx自带是没有针对负载均衡后端节点的健康检查的，但是可以通过默认自带的ngx_http_proxy_module.<br>  模块和ngx_http_upstream_module模块中的相关指令来完成当后端节点出现故障时，自动切换到健康节点来提供访问。</p>
+<p>这里学习下ngx_http_proxy_module 模块中的 <code>proxy_connect_timeout</code> 指令、<code>proxy_read_timeout</code>指令和<code>proxy_next_upstream</code>指令</p>
+<p><strong>设置与后端服务器建立连接的超时时间。</strong> 应该注意这个超时一般不可能大于75秒。</p>
+<pre><code>proxy_connect_timeout 60s;
+</code></pre><p><strong>设置从后端服务器读取响应的超时</strong></p>
+<pre><code>proxy_read_timeout 60s;
+</code></pre><p><strong>指定在何种情况下一个失败的请求应该被发送到下一台后端服务节点</strong></p>
+<pre><code>proxy_next_upstream error timeout;
+</code></pre><p><code>error</code>      和后端服务器建立连接时，或者向后端服务器发送请求时，或者从后端服务器接收响应头时，出现错误</p>
+<p><code>timeout</code>    和后端服务器建立连接时，或者向后端服务器发送请求时，或者从后端服务器接收响应头时，出现超时</p>
+<p><code>invalid_header</code>  后端服务器返回空响应或者非法响应头</p>
+<p><code>http_500</code>    后端服务器返回的响应状态码为500</p>
+<p><code>http_502</code>    后端服务器返回的响应状态码为502</p>
+<p><code>http_503</code>    后端服务器返回的响应状态码为503</p>
+<p><code>http_504</code>    后端服务器返回的响应状态码为504</p>
+<p><code>http_404</code>    后端服务器返回的响应状态码为404</p>
+<p><code>off</code>         停止将请求发送给下一台后端服务器</p>
+<p>&emsp;&emsp;还可以通过tengine来实现，淘宝技术团队开发的<code>nginx_upstream_check_module</code>模块来实现。<br>如果没有使用tengine需要打补丁。<br>配置起来比上述方法简单一些。<a href="http://tengine.taobao.org/document_cn/http_upstream_check_cn.html" target="_blank" rel="external">参考地址</a></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div></pre></td><td class="code"><pre><div class="line">http &#123;</div><div class="line">    upstream cluster1 &#123;</div><div class="line">        # simple round-robin</div><div class="line">        server 192.168.0.1:80;</div><div class="line">        server 192.168.0.2:80;</div><div class="line">        check interval=3000 rise=2 fall=5 timeout=1000 type=http;</div><div class="line">        check_http_send &quot;HEAD / HTTP/1.0\r\n\r\n&quot;;</div><div class="line">        check_http_expect_alive http_2xx http_3xx;</div><div class="line">    &#125;</div><div class="line">    upstream cluster2 &#123;</div><div class="line">        # simple round-robin</div><div class="line">        server 192.168.0.3:80;</div><div class="line">        server 192.168.0.4:80;</div><div class="line">        check interval=3000 rise=2 fall=5 timeout=1000 type=http;</div><div class="line">        check_keepalive_requests 100;</div><div class="line">        check_http_send &quot;HEAD / HTTP/1.1\r\nConnection: keep-alive\r\n\r\n&quot;;</div><div class="line">        check_http_expect_alive http_2xx http_3xx;</div></pre></td></tr></table></figure>
+<p>&emsp;&emsp;上面配置的意思是，对name这个负载均衡条目中的所有节点，每个3秒检测一次，请求2次正常则标记 realserver状态为up，如果检测 5 次都失败，则标记 realserver的状态为down，超时时间为1秒。</p>
+<ul>
+<li>interval：向后端发送的健康检查包的间隔。</li>
+<li>fall(fall_count): 如果连续失败次数达到fall_count，服务器就被认为是down。</li>
+<li>rise(rise_count): 如果连续成功次数达到rise_count，服务器就被认为是up。</li>
+<li>timeout: 后端健康请求的超时时间。</li>
+<li>type：健康检查包的类型，现在支持以下多种类型<ul>
+<li>tcp：简单的tcp连接，如果连接成功，就说明后端正常。</li>
+<li>ssl_hello：发送一个初始的SSL hello包并接受服务器的SSL hello包。</li>
+<li>http：发送HTTP请求，通过后端的回复包的状态来判断后端是否存活。</li>
+<li>mysql: 向mysql服务器连接，通过接收服务器的greeting包来判断后端是否存活。</li>
+<li>ajp：向后端发送AJP协议的Cping包，通过接收Cpong包来判断后端是否存活。</li>
+</ul>
+</li>
+</ul>
+<p><strong>check_keepalive_requests</strong></p>
+<p>&emsp;&emsp;该指令可以配置一个连接发送的请求数，其默认值为1，表示Tengine完成1次请求后即关闭连接。</p>
+<p><strong>check_http_send</strong></p>
+<p>&emsp;&emsp;该指令可以配置http健康检查包发送的请求内容。为了减少传输数据量，推荐采用”HEAD”方法。</p>
+<p>当采用长连接进行健康检查时，需在该指令中添加keep-alive请求头，如：”HEAD / HTTP/1.1\r\nConnection: keep-alive\r\n\r\n”。<br>同时，在采用”GET”方法的情况下，请求uri的size不宜过大，确保可以在1个interval内传输完成，否则会被健康检查模块视为后端服务器或网络异常。</p>
+<p><strong>check_http_expect_alive</strong></p>
+<p>&emsp;&emsp;该指令指定HTTP回复的成功状态，默认认为2XX和3XX的状态是健康的。如果爬虫多404多可以把4XX也写进去。</p>
 <h2 id="rewrite"><a href="#rewrite" class="headerlink" title="rewrite"></a>rewrite</h2><blockquote>
 <p>rewrite功能就是，使用nginx提供的全局变量或自己设置的变量，结合正则表达式和标志位实现url重写以及重定向。rewrite只能放在server{},location{},if{}中，并且只能对域名后边的除去传递的参数外的字符串起作用</p>
 </blockquote>
 <p><strong>语法</strong><br><code>rewrite regex replacement [flag];</code></p>
 <p>flag标志位</p>
 <ul>
-<li>last – 相当于Apache的[L]标记，表示完成rewrite，基本上都用这个 Flag</li>
-<li>break – 中止 Rewirte，不再继续匹配</li>
-<li>redirect – 返回临时重定向的 HTTP 状态 302</li>
-<li>permanent – 返回永久重定向的 HTTP 状态 301</li>
+<li>last – 相当于Apache的[L]标记，表示完成rewrite，浏览器地址不变</li>
+<li>break – 中止 Rewirte，不再继续匹配，浏览器地址不变</li>
+<li>redirect – 返回临时重定向的 HTTP 状态 302 浏览器地址显示跳转后的地址</li>
+<li>permanent – 返回永久重定向的 HTTP 状态 301 浏览器地址显示跳转后的地址</li>
 </ul>
-<p>last一般写在server和if中，而break一般使用在location中<br>last不终止重写后的url匹配，即新的url会再从server走一遍匹配流程，而break终止重写后的匹配</p>
+<p>last一般写在server和if中，而break一般使用在location中</p>
+<p>last不终止重写后的url匹配，即新的url会再从server走一遍匹配流程，而break终止重写后的匹配。</p>
+<p><strong>简单举例</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">// 访问/example.html 的时候重写到/index.html</div><div class="line">rewrite /example.html /index.html last;</div><div class="line">// 访问/example.html 的时候重写到/index.html,并停止匹配</div><div class="line">rewrite /example.html /index.html break;</div><div class="line">// 把 /search/key =&gt; /search.html?keyword=key</div><div class="line">rewrite &apos;^/images/([a-z]&#123;2&#125;)/([a-z0-9]&#123;5&#125;)/(.*)\.(png|jpg|gif)$&apos; /data?file=$3.$4 last;</div><div class="line"> &quot;^&quot; 表示开头匹配 &quot;$&quot; 表示结尾匹配 而且表示路径的&quot;/&quot;是需要转义的，&quot;$1&quot;表示表达式匹配到的第一个括号里面的内容，即([a-z]&#123;2&#125;)</div></pre></td></tr></table></figure>
+<p>正则实例可以<a href="http://www.cnblogs.com/zxin/archive/2013/01/26/2877765.html" target="_blank" rel="external">参考</a></p>
 ]]></content>
     
     <summary type="html">
@@ -823,9 +979,12 @@ include /etc/nginx/sites-enabled/*;
     <link href="http://yoursite.com/2017/06/27/HTML-CSS/"/>
     <id>http://yoursite.com/2017/06/27/HTML-CSS/</id>
     <published>2017-06-27T08:37:22.000Z</published>
-    <updated>2017-06-27T09:27:41.000Z</updated>
+    <updated>2017-08-03T07:44:50.000Z</updated>
     
-    <content type="html"><![CDATA[<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">&lt;html&gt;</div><div class="line"></div><div class="line">&lt;head&gt;</div><div class="line">&lt;style type=&quot;text/css&quot;&gt;</div><div class="line">h1 &#123;color: red&#125;</div><div class="line">p &#123;color: blue&#125;</div><div class="line">&lt;/style&gt;</div><div class="line">&lt;/head&gt;</div><div class="line"></div><div class="line">&lt;body&gt;</div><div class="line">&lt;h1&gt;header 1&lt;/h1&gt;</div><div class="line">&lt;p&gt;A paragraph.&lt;/p&gt;</div><div class="line">&lt;/body&gt;</div><div class="line"></div><div class="line">&lt;/html&gt;</div></pre></td></tr></table></figure>
+    <content type="html"><![CDATA[<blockquote>
+<p>熟悉前端是我一直以来的理想，有时间就看下总结下。。。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line">&lt;html&gt;</div><div class="line"></div><div class="line">&lt;head&gt;</div><div class="line">&lt;style type=&quot;text/css&quot;&gt;</div><div class="line">h1 &#123;color: red&#125;</div><div class="line">p &#123;color: blue&#125;</div><div class="line">&lt;/style&gt;</div><div class="line">&lt;/head&gt;</div><div class="line"></div><div class="line">&lt;body&gt;</div><div class="line">&lt;h1&gt;header 1&lt;/h1&gt;</div><div class="line">&lt;p&gt;A paragraph.&lt;/p&gt;</div><div class="line">&lt;/body&gt;</div><div class="line"></div><div class="line">&lt;/html&gt;</div></pre></td></tr></table></figure>
 <p>小白时期不了解HTML与CSS是怎么配合的，看上面代码 <code>&lt;head&gt;</code>标签中的CSS 声明<code>h1</code>颜色为红 <code>p</code> 颜色为蓝，其实就是把各个标签的样式在这个里面做一个总的约束，不用写到各个标签当中了。 提高了效率。</p>
 <p>&lt;!DOCTYPE html&gt;</p>
 <p><html></html></p>
@@ -837,7 +996,10 @@ include /etc/nginx/sites-enabled/*;
     
     <summary type="html">
     
-      &lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;3&lt;/di
+      &lt;blockquote&gt;
+&lt;p&gt;熟悉前端是我一直以来的理想，有时间就看下总结下。。。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;figure class=&quot;highlight plain&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;
     
     </summary>
     
@@ -1022,95 +1184,6 @@ include /etc/nginx/sites-enabled/*;
     
     
       <category term="docker" scheme="http://yoursite.com/tags/docker/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>docker是什么</title>
-    <link href="http://yoursite.com/2017/06/23/docker%E6%98%AF%E4%BB%80%E4%B9%88/"/>
-    <id>http://yoursite.com/2017/06/23/docker是什么/</id>
-    <published>2017-06-23T06:43:53.000Z</published>
-    <updated>2017-06-23T07:45:47.000Z</updated>
-    
-    <content type="html"><![CDATA[<blockquote>
-<p>之前公司在我来之前有个哥们儿是负责docker的，但是一直没有推广起来，测试环境都没有，这个项目就不了了之了。但是就在前几天跟ucloud架构交流，说起他之前在云上搞docker根据业务自动扩容，带宽自动调整。说的我真的眼睛放光。决心研究一下。</p>
-</blockquote>
-<p>我去年搞过虚拟化产品对虚拟化的产品做了调研。做了proxmox，类似kvm给测试服务用，开了几台虚拟机，这个产品支持机器热迁移等等。(这个博客刚开始写没多久，以后会把这些笔记也都放上来)<br>其实虚拟化可以分为以下几种</p>
-<h1 id="对比传统虚拟化"><a href="#对比传统虚拟化" class="headerlink" title="对比传统虚拟化"></a>对比传统虚拟化</h1><h2 id="传统虚拟化"><a href="#传统虚拟化" class="headerlink" title="传统虚拟化"></a>传统虚拟化</h2><p>最流行的虚拟化方法，使用Hypervisor这种中间层软件，在虚拟服务器和底层硬件之间建立一个抽象层。</p>
-<p>Hypervisor可以捕获CPU指令，为指令访问硬件控制器和外设充当中介。因而，完全虚拟化技术几乎能让任何一款操作系统不用改动就能安装到虚拟服务器上，而它们不知道自己运行在虚拟化环境下。主要缺点是，性能方面不如裸机，因为Hypervisor需要占用一些资源，给处理器带来开销。</p>
-<p><img src="http://or2jd66dq.bkt.clouddn.com/%E5%B1%8F%E5%B9%95%E5%BF%AB%E7%85%A7%202017-06-23%20%E4%B8%8B%E5%8D%883.34.17.png" alt=""></p>
-<h2 id="操作系统层虚拟化"><a href="#操作系统层虚拟化" class="headerlink" title="操作系统层虚拟化"></a>操作系统层虚拟化</h2><p>实现虚拟化还有一个方法，那就是在操作系统层面增添虚拟服务器功能。就操作系统层的虚拟化而言，没有独立的Hypervisor层。相反主机操作系统本身就负责在多个虚拟服务器之间分配硬件资源，并且让这些服务器彼此独立。一个明显的区别是，如果使用操作系统层虚拟化，所有虚拟服务器必须运行同一操作系统。</p>
-<p>虽然操作系统层虚拟化的灵活性比较差，但本机速度性能比较高。此外，由于架构在所有虚拟服务器上使用单一、标准的操作系统，管理起来比异构环境要容易。<br><img src="http://or2jd66dq.bkt.clouddn.com/docker%E8%99%9A%E6%8B%9F%E5%8C%96.png" alt=""><br><code>docker</code>属于操作系统层面的虚拟化。<br>传统虚拟机技术是虚拟出一套硬件后，在其上运行一个完整操作系统，在该系统上再运行所需应用进程；而容器内的应用进程直接运行于宿主的内核，容器内没有自己的内核，而且也没有进行硬件虚拟。因此容器要比传统虚拟机更为轻便。它与传统hyper-V 的区别在于理念，之前的虚拟化都是以操作系统为中心的，而docker是以应用为中心，把应用的环境代码等打包成镜像直接发布。服务启动也是秒级的。</p>
-<h1 id="docker优势"><a href="#docker优势" class="headerlink" title="docker优势"></a>docker优势</h1><ul>
-<li>更高效的利用系统资源</li>
-<li>更快速的启动时间</li>
-<li>一致的运行环境</li>
-<li>持续交付和部署</li>
-<li>更轻松的迁移</li>
-<li>更轻松的维护和扩展</li>
-</ul>
-<p>这些优势都是运维喜欢的，所以运维要推行docker。</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;blockquote&gt;
-&lt;p&gt;之前公司在我来之前有个哥们儿是负责docker的，但是一直没有推广起来，测试环境都没有，这个项目就不了了之了。但是就在前几天跟ucloud架构交流，说起他之前在云上搞docker根据业务自动扩容，带宽自动调整。说的我真的眼睛放光。决心研究一下。&lt;/
-    
-    </summary>
-    
-      <category term="docker" scheme="http://yoursite.com/categories/docker/"/>
-    
-    
-      <category term="docker" scheme="http://yoursite.com/tags/docker/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>shell命令之xargs与exec</title>
-    <link href="http://yoursite.com/2017/06/23/shell%E5%91%BD%E4%BB%A4%E4%B9%8Bxargs%E4%B8%8Eexec/"/>
-    <id>http://yoursite.com/2017/06/23/shell命令之xargs与exec/</id>
-    <published>2017-06-23T03:18:55.000Z</published>
-    <updated>2017-06-27T07:41:10.000Z</updated>
-    
-    <content type="html"><![CDATA[<h2 id="exec"><a href="#exec" class="headerlink" title="exec"></a>exec</h2><p>看起来就是执行某动作的命令<br>格式为 -exec echo {} \;<br>其中 <code>echo</code> 为动作, <code>{}</code> 为参数(即为之前找到的文件) <code>\</code> 转义 <code>;</code> 是结束符</p>
-<p>示例<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">find ./ -name \*.yml -exec echo &#123;&#125; \;</div><div class="line">./logrotate_conf.yml</div><div class="line">./filebeat.yml</div><div class="line">./group_vars/all.yml</div><div class="line">./group_vars/ehr.yml</div><div class="line">./group_vars/http_proxy.yml</div><div class="line">./group_vars/medweb.yml</div></pre></td></tr></table></figure></p>
-<h2 id="xargs"><a href="#xargs" class="headerlink" title="xargs"></a>xargs</h2><p>xargs依赖管道,下边直接写了几个个实例</p>
-<p><code>基本使用</code></p>
-<p>把多行文件合并成一行 或者每行指定元素个数(-n 参数) 格式输出</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div></pre></td><td class="code"><pre><div class="line">[root@md6 ~]# cat test.txt</div><div class="line">a b c d e f</div><div class="line"> g h i j k l</div><div class="line"> m n o p q r s</div><div class="line">t u v w x y z</div><div class="line"></div><div class="line">[root@md6 ~]# cat test.txt | xargs echo</div><div class="line">a b c d e f g h i j k l m n o p q r s t u v w x y z</div><div class="line">[root@md6 ~]# cat test.txt | xargs echo &gt; test1.txt</div><div class="line">[root@md6 ~]# cat test1.txt</div><div class="line">a b c d e f g h i j k l m n o p q r s t u v w x y z</div><div class="line"></div><div class="line">[root@md6 ~]# cat test.txt | xargs -n 4</div><div class="line">a b c d</div><div class="line">e f g h</div><div class="line">i j k l</div><div class="line">m n o p</div><div class="line">q r s t</div><div class="line">u v w x</div><div class="line">y z</div><div class="line">[root@md6 ~]# cat test.txt | xargs -n 3</div><div class="line">a b c</div><div class="line">d e f</div><div class="line">g h i</div><div class="line">j k l</div><div class="line">m n o</div><div class="line">p q r</div><div class="line">s t u</div><div class="line">v w x</div><div class="line">y z</div></pre></td></tr></table></figure>
-<ul>
-<li><p>实例1 直接打印</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">find ./ -name \*.yml | xargs echo</div><div class="line">./logrotate_conf.yml ./filebeat.yml ./group_vars/all.yml ./group_vars/ehr.yml ./group_vars/http_proxy.yml ./group_vars/medweb.yml</div></pre></td></tr></table></figure>
-</li>
-<li><p>实例2 查找文件内容中带hostname的</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -type f -print | xargs grep -n &quot;hostname&quot; (-n输出行号)</div></pre></td></tr></table></figure>
-</li>
-<li><p>实例3 mv 或者 cp 使用-i参数 -p 打印过程(交互确认)</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">ls  *.txt | xargs -n1 -i -p cp &#123;&#125; /var/tmp/</div></pre></td></tr></table></figure>
-</li>
-<li><p>实例4 查找当下文件按大小排序</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -maxdepth 1 ! -name &quot;.&quot; -print0 | xargs -0 du -b | sort -nr | head -10 | nl</div></pre></td></tr></table></figure>
-</li>
-<li><p>实例5 结合sed替换</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -name &quot;*.txt&quot; -print0 | xargs -0 sed -i &apos;s/aaa/bbb/g&apos;</div></pre></td></tr></table></figure>
-</li>
-</ul>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>首先使用方式不一样，exec操作麻烦些 xargs更简单直接方法多样<br>另外从输出结果看得出  exec是遇到一个找到的文件就执行一次命令，xargs是把结果放到一起，执行一次。(这样可以使用在 把多行文件合并成一行的特定场景中)<br>需要强调xargs遇到文件名中有空格的行为是处理不了的。<br>这种情况可以这样</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">find . -name \*.txt -print0 | xargs -0 rm</div></pre></td></tr></table></figure>
-<p>其中find找到每个文件定义以null字符结尾  xargs找文件定义null分割文件 就可以了</p>
-]]></content>
-    
-    <summary type="html">
-    
-      &lt;h2 id=&quot;exec&quot;&gt;&lt;a href=&quot;#exec&quot; class=&quot;headerlink&quot; title=&quot;exec&quot;&gt;&lt;/a&gt;exec&lt;/h2&gt;&lt;p&gt;看起来就是执行某动作的命令&lt;br&gt;格式为 -exec echo {} \;&lt;br&gt;其中 &lt;code&gt;echo&lt;/code&gt; 
-    
-    </summary>
-    
-      <category term="基础运维" scheme="http://yoursite.com/categories/%E5%9F%BA%E7%A1%80%E8%BF%90%E7%BB%B4/"/>
-    
-    
-      <category term="shell" scheme="http://yoursite.com/tags/shell/"/>
     
   </entry>
   

@@ -80,6 +80,7 @@ systemctl restart rsyslogd
 刷到每个机器上就好了   注意最好配置下logrotate每天切割一下
 
 这样就可以在kibana中看到每个登录人员的操作情况了。
+![](http://or2jd66dq.bkt.clouddn.com/bash_history_kibana.png)
 
 ## 查看用户痕迹过程展示
 

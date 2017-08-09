@@ -95,17 +95,17 @@
 
 
 
-<meta name="description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  TCP/IP要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作">
+<meta name="description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  用廖雪峰老师的话说  Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个S">
 <meta name="keywords" content="socket">
 <meta property="og:type" content="article">
 <meta property="og:title" content="socket解读">
 <meta property="og:url" content="http://yoursite.com/2017/07/18/socket解读/index.html">
 <meta property="og:site_name" content="fix u dream">
-<meta property="og:description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  TCP/IP要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作">
-<meta property="og:updated_time" content="2017-07-31T05:45:26.000Z">
+<meta property="og:description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  用廖雪峰老师的话说  Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个S">
+<meta property="og:updated_time" content="2017-08-07T09:26:30.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="socket解读">
-<meta name="twitter:description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  TCP/IP要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作">
+<meta name="twitter:description" content="前言 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。  用廖雪峰老师的话说  Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个S">
 
 
 
@@ -392,6 +392,10 @@
         <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><blockquote>
 <p>之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。</p>
 </blockquote>
+<p>用廖雪峰老师的话说</p>
+<blockquote>
+<p>Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个Socket需要知道目标计算机的IP地址和端口号，再指定协议类型即可。</p>
+</blockquote>
 <h1 id="tcpip"><a href="#TCP-IP" class="headerlink" title="TCP/IP"></a>TCP/IP</h1><p>要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作在第几层？<br>TCP/IP（Transmission Control Protocol/Internet Protocol）即传输控制协议/网间协议，定义了主机如何连入因特网及数据如何再它们之间传输的标准，</p>
 <p>从字面意思来看TCP/IP是TCP和IP协议的合称，但实际上TCP/IP协议是指因特网整个TCP/IP协议簇。不同于ISO模型的七个分层，TCP/IP协议参考模型把所有的TCP/IP系列协议归类到四个抽象层中</p>
 <p>应用层：TFTP，HTTP，SNMP，FTP，SMTP，DNS，Telnet 等等</p>
@@ -399,6 +403,8 @@
 <p>网络层：IP，ICMP，OSPF，EIGRP，IGMP</p>
 <p>数据链路层：SLIP，CSLIP，PPP，MTU</p>
 <p>每一层都是建立在下一层提供的服务上，为上一层提供服务</p>
+<p>python socket客户端编写(down 新浪首页)<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div></pre></td><td class="code"><pre><div class="line"># -*- coding:utf-8 -*-</div><div class="line">import socket</div><div class="line"></div><div class="line">s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)</div><div class="line"></div><div class="line">s.connect((&apos;www.sina.com&apos;,80))</div><div class="line"></div><div class="line">s.send(&apos;GET / HTTP/1.1\r\nHost: www.sina.com.cn\r\nConnection: close\r\n\r\n&apos;)</div><div class="line"></div><div class="line">buffer = []</div><div class="line">while True:</div><div class="line"></div><div class="line">    d = s.recv(2048)</div><div class="line">    if d:</div><div class="line">        buffer.append(d)</div><div class="line">    else:</div><div class="line">        break</div><div class="line"></div><div class="line">data=&apos;&apos;.join(buffer)</div><div class="line">s.close</div><div class="line">header, html = data.split(&apos;\r\n\r\n&apos;,1)</div><div class="line">print header</div></pre></td></tr></table></figure></p>
+<p>server端编写</p>
 
       
     </div>
@@ -550,7 +556,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-count">43</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -572,7 +578,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-count">31</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

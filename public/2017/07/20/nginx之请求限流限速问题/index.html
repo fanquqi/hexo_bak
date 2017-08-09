@@ -102,7 +102,7 @@
 <meta property="og:url" content="http://yoursite.com/2017/07/20/nginx之请求限流限速问题/index.html">
 <meta property="og:site_name" content="fix u dream">
 <meta property="og:description" content="单位时间按照IP地址限速工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面就会用到map来设置。看下边例子展示 123456789101112131415161718192021http &amp;#123;      geo $white_ip &amp;#123;        ranges;        default 0;        127.0.0.1-127.0.0.1 1;">
-<meta property="og:updated_time" content="2017-08-01T04:12:24.000Z">
+<meta property="og:updated_time" content="2017-08-03T07:45:46.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="nginx之请求限流限速问题">
 <meta name="twitter:description" content="单位时间按照IP地址限速工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面就会用到map来设置。看下边例子展示 123456789101112131415161718192021http &amp;#123;      geo $white_ip &amp;#123;        ranges;        default 0;        127.0.0.1-127.0.0.1 1;">
@@ -369,7 +369,7 @@
       
         <h1 id="单位时间按照ip地址限速"><a href="#单位时间按照IP地址限速" class="headerlink" title="单位时间按照IP地址限速"></a>单位时间按照IP地址限速</h1><p>工作当中经常需要按照IP地址限速，加白名单或者黑名单，这里面就会用到map来设置。看下边例子展示</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line">http &#123;  </div><div class="line">    geo $white_ip &#123;</div><div class="line">        ranges;</div><div class="line">        default 0;</div><div class="line">        127.0.0.1-127.0.0.1 1;</div><div class="line"></div><div class="line">        36.110.16.242-36.110.16.242 1</div><div class="line">         </div><div class="line">    &#125;</div><div class="line"></div><div class="line"></div><div class="line">    map $white_ip $white_ip_address &#123;</div><div class="line">        0 $binary_remote_addr;</div><div class="line">        1 &quot;&quot;;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    limit_req_zone $white_ip_address zone=:10m rate=20r/s;</div><div class="line">    </div><div class="line">    ....</div><div class="line"></div><div class="line">&#125;</div></pre></td></tr></table></figure>
-<p>解释下：</p>
+<p><strong>解释下</strong></p>
 <p>上述通过<code>geo模块</code> 设定了白名单 </p>
 <p><strong>ngx_http_geo_module</strong> 模块可以用来创建变量，其值依赖于客户端IP地址。<br>语法: geo [$address] $variable { … }    设置在http 模块中<br><code>[$address]</code> 可以为空，使用默认变量也就是$remote_addr 其实例子中 <code>geo $white_ip {}</code>  就相当于<code>geo $remote_addr $white_ip {}</code><br><code>$white_ip</code> 命名为<code>white_ip</code><br><code>ranges</code> 使用以地址段的形式定义地址，这个参数必须放在首位。为了加速装载地址库，地址应按升序定义。<br><code>default</code> 设置默认值，如果客户端地址不能匹配任意一个定义的地址，nginx将使用此值。</p>
 <p>注：如果36.110.16.242 这个IP地址访问本站, <code>white_ip</code> 这个变量值就是 1,否则就是0 </p>
@@ -430,6 +430,10 @@
           <span class="post-nav-divider"></span>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/08/02/MySQL问题查找-状态查看/" rel="prev" title="MySQL问题查找,状态查看">
+                MySQL问题查找,状态查看 <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -526,7 +530,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-count">43</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -548,7 +552,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-count">31</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

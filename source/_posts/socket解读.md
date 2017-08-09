@@ -8,6 +8,9 @@ categories: 基础运维
 # 前言
 > 之前一直部署各种开源软件，包括很多RPC服务，其中很多都会有一个socket，但是很多地方可以用地址加端口替代，我虽然说做运维也将近两年了，但是毕竟大学是数学专业，不是计算机科班出身，对什么TCP/IP啊socket啊，都得是自己看书了解。so，抽个空补习了一下。
 
+用廖雪峰老师的话说
+> Socket是网络编程的一个抽象概念。通常我们用一个Socket表示“打开了一个网络链接”，而打开一个Socket需要知道目标计算机的IP地址和端口号，再指定协议类型即可。
+
 # TCP/IP
 要理解socket首先要理解TCP/IP，面试过程当中我们经常被问到ISO七层模型相关的知识，类似TCP/IP工作在第几层？
 TCP/IP（Transmission Control Protocol/Internet Protocol）即传输控制协议/网间协议，定义了主机如何连入因特网及数据如何再它们之间传输的标准，
@@ -24,3 +27,32 @@ TCP/IP（Transmission Control Protocol/Internet Protocol）即传输控制协议
 
 每一层都是建立在下一层提供的服务上，为上一层提供服务
 
+
+
+python socket客户端编写(down 新浪首页)
+```
+# -*- coding:utf-8 -*-
+import socket
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+s.connect(('www.sina.com',80))
+
+s.send('GET / HTTP/1.1\r\nHost: www.sina.com.cn\r\nConnection: close\r\n\r\n')
+
+buffer = []
+while True:
+
+    d = s.recv(2048)
+    if d:
+        buffer.append(d)
+    else:
+        break
+
+data=''.join(buffer)
+s.close
+header, html = data.split('\r\n\r\n',1)
+print header
+```
+
+server端编写

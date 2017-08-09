@@ -107,7 +107,7 @@
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/ES%E5%86%85%E5%AD%98%E8%B0%83%E6%95%B4.png">
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/ES%E8%8A%82%E7%82%B9%E8%A2%AB%E8%AF%AF%E5%88%A0%E9%99%A4.png">
 <meta property="og:image" content="http://or2jd66dq.bkt.clouddn.com/kibanaUTC.png">
-<meta property="og:updated_time" content="2017-07-27T08:15:59.000Z">
+<meta property="og:updated_time" content="2017-08-07T02:22:49.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="ELK问题处理汇总">
 <meta name="twitter:description" content="1. Field data loading is forbidden on [FIELDNAME] 问题描述： 当我们在kibana画图时，有的nginx_access 日志中的有一部分字段是不能用的，在grafana中也不可以，但是别的索引文件可以，比如elapsed_log,search_log,错误如下图所示   问题原因问题原因就是我们索引的设置中 &amp;quot;fielddata&amp;quot">
@@ -460,7 +460,7 @@
 </blockquote>
 <h2 id="9-elasticsearch-high-disk-watermark-问题"><a href="#9-Elasticsearch-high-disk-watermark-问题" class="headerlink" title="9. Elasticsearch high disk watermark 问题"></a>9. Elasticsearch high disk watermark 问题</h2><p>问题描述：因为我们每个节点都不是单独只提供一个服务，每台机器的配置和硬盘大小都不尽一致，内存啥的可以很好的处理，但是硬盘大小怎么分配？<br>比如说有一台机器600G硬盘，剩下两台2T硬盘，这种，如果平均分配恐怕是不行了，小磁盘爆了大磁盘还没有存一半。怎么办？</p>
 <p><code>问题解决</code> ES在你想到这个问题之前就已经想到了。操作如下</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">curl -XPUT localhost:9200/_cluster/settings -d &apos;&#123;</div><div class="line">  &quot;transient&quot;: &#123;</div><div class="line">    &quot;cluster.routing.allocation.disk.watermark.low&quot;: &quot;80%&quot;,</div><div class="line">    &quot;cluster.routing.allocation.disk.watermark.high&quot;: &quot;50gb&quot;,</div><div class="line">    &quot;cluster.info.update.interval&quot;: &quot;1m&quot;</div><div class="line">  &#125;</div><div class="line">&#125;&apos;</div></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">curl -XPUT 10.215.33.36:9200/_cluster/settings -d &apos;&#123;</div><div class="line">  &quot;transient&quot;: &#123;</div><div class="line">    &quot;cluster.routing.allocation.disk.watermark.low&quot;: &quot;80%&quot;,</div><div class="line">    &quot;cluster.routing.allocation.disk.watermark.high&quot;: &quot;80gb&quot;,</div><div class="line">    &quot;cluster.info.update.interval&quot;: &quot;1m&quot;</div><div class="line">  &#125;</div><div class="line">&#125;&apos;</div></pre></td></tr></table></figure>
 <p>解读下这三个参数。<br><code>cluster.routing.allocation.disk.watermark.low</code>  Controls the low watermark for disk usage. It defaults to 85%.如果磁盘使用查过85% 就不回新建分片到这个节点上了，保证磁盘不会被撑爆。<br><code>cluster.routing.allocation.disk.watermark.high</code> Controls the high watermark. It defaults to 90%.默认值百分之90。如果某节点磁盘使用到达90% ES会自动把此节点上的分片转移到别的节点。也可以设置成某个数值类似上文<code>50gb</code><br><code>cluster.info.update.interval</code> How often Elasticsearch should check on disk usage for each node in the cluster. Defaults to 30s. 多久检查一次磁盘用量，默认值30s.由于我们不可能在1分钟内写几十GB数据所以这个可以设置的稍长一些。</p>
 <h2 id="10-时区问题处理"><a href="#10-时区问题处理" class="headerlink" title="10. 时区问题处理"></a>10. 时区问题处理</h2><p>之前看到过有人说ELK的失去问题，类似kibana显示出来时间与真实时间差8小时，我一直没有遇到，直到今天。。。<br><code>问题描述</code>: 事情的经过是这样的，我给ES扩容,然后修改了template（目的在给集群优化一下，提高下集群的QPS）但是导致之前grok失效了，第二天来了发现grafana中爬虫统计数据就到今天8点整，然后我意识到自己昨天的操作有问题，然后删除今天的数据重新导入。奇怪的事儿发生了。。我明明删除了几天的nginx_access日志的index但是kibana中还是有到今天八点的数据，我仔细一看今天的数据存在了昨天的索引当中。如下图<br><img src="http://or2jd66dq.bkt.clouddn.com/kibanaUTC.png" alt=""><br>然后我特别不解为啥ES会在8点钟新建一个索引？？？<br>为啥？</p>
 <p>其实是logstash在ES建立的索引，它每天0点建立一个新的索引，kibana也接受这种设定, 在查询和展示时根据用户的时区进行处理。<br>这导致了, 对于东八区, 2017-07-27日, 8点之前, 只有logstash-2017.07.26这个index, 到8点的时候, 创建新的index logstash-2017.07.27, 即, 对于我们这个时区的人来说, 一天的数据存在了两个index里面<br><strong>修改方案一</strong></p>
@@ -619,7 +619,7 @@
           
             <div class="site-state-item site-state-posts">
               <a href="/archives">
-                <span class="site-state-item-count">40</span>
+                <span class="site-state-item-count">43</span>
                 <span class="site-state-item-name">日志</span>
               </a>
             </div>
@@ -641,7 +641,7 @@
             
             <div class="site-state-item site-state-tags">
               <a href="/tags/index.html">
-                <span class="site-state-item-count">30</span>
+                <span class="site-state-item-count">31</span>
                 <span class="site-state-item-name">标签</span>
               </a>
             </div>

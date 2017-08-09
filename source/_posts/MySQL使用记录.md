@@ -222,6 +222,5 @@ show create database online_database;
 alter database online_database default character set gbk collate gbk_bin;      
 # 删除数据库
 drop database online_database;
-
 ```
 
